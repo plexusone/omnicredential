@@ -167,6 +167,9 @@ func validateCredential(ps *problems, id string, c Credential, ids map[string]bo
 	}
 
 	closed(ps, id, "rotation.policy", c.Rotation.Policy, Policies(), true)
+	for _, st := range Stages() {
+		closed(ps, id, "handling."+string(st), c.Handling.By(st), Actors(), true)
+	}
 	switch {
 	case c.Rotation.IntervalDays < 0:
 		ps.add(id, "rotation.intervalDays must not be negative")

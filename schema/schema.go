@@ -116,6 +116,8 @@ func enums(t reflect.Type) *jsonschema.Schema {
 		values = anys(omnicredential.Policies())
 	case reflect.TypeFor[omnicredential.EventType]():
 		values = anys(omnicredential.EventTypes())
+	case reflect.TypeFor[omnicredential.Actor]():
+		values = anys(omnicredential.Actors())
 	default:
 		return nil
 	}

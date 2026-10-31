@@ -26,6 +26,7 @@ func secret(id string) Credential {
 		Stores:      []Store{{Type: StoreAWSSSM, Role: RolePrimary, Path: "/example/prod/SESSION_KEY"}},
 		Consumers:   []Consumer{{System: "example-app", Via: "env SESSION_KEY"}},
 		Rotation:    Rotation{Policy: PolicyScheduled, IntervalDays: 90},
+		Handling:    Handling{Generate: ActorHuman, Distribute: ActorSystem, Rotate: ActorHuman, Automation: "deploy tool"},
 	}
 }
 
@@ -73,7 +74,8 @@ func TestValidRegistry(t *testing.T) {
 		ID: "ci/aws-deploy-role", Name: "deploy role", System: "ci", Kind: KindFederated,
 		Status: StatusActive, Owner: "operators", Issuer: Issuer{Type: IssuerAWS, Console: "https://console.aws.amazon.com/iam/"},
 		Generation: Generation{Method: MethodFederated}, Rotation: Rotation{Policy: PolicyOnDemand},
-		Links: []Link{{Title: "OIDC", URL: "https://docs.github.com/actions"}},
+		Handling: Handling{Generate: ActorSystem, Distribute: ActorSystem, Rotate: ActorSystem},
+		Links:    []Link{{Title: "OIDC", URL: "https://docs.github.com/actions"}},
 	}
 	r := NewRegistry(pw, dsn, oidc)
 	if err := r.Validate(); err != nil {
@@ -92,6 +94,7 @@ func TestValidateReportsEveryProblem(t *testing.T) {
 		Links:        []Link{{URL: "ftp://x"}},
 		Entitlements: []Entitlement{{Resource: "repo"}},
 	}
+	bad.Handling = Handling{Generate: "robot", Distribute: ActorSystem, Rotate: ActorHuman}
 	r := &Registry{FormatVersion: "0", Credentials: []Credential{bad, secret("x"), {}}}
 	got := problemsOf(t, r.Validate())
 	for _, want := range []string{
@@ -104,6 +107,7 @@ func TestValidateReportsEveryProblem(t *testing.T) {
 		`kind "Not A Slug" must be a lowercase slug`,
 		`status "live" is not one of`,
 		`sensitivity "extreme" is not one of`,
+		`handling.generate "robot" is not one of`,
 		"issuer.type is required",
 		"issuer.console must be an absolute https URL",
 		"needs a store with role primary",
@@ -115,6 +119,7 @@ func TestValidateReportsEveryProblem(t *testing.T) {
 		"links[0].url must be an absolute https URL",
 		"entitlements[0] needs a resource and an access",
 		"credentials[2]: kind is required",
+		"credentials[2]: handling.generate is required",
 	} {
 		wantProblem(t, got, want)
 	}
@@ -414,5 +419,22 @@ func TestExampleFilesAreValid(t *testing.T) {
 	}
 	if _, err := LoadLog(filepath.Join("examples", "basic", "events.json"), r); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHandling(t *testing.T) {
+	h := Handling{Generate: ActorHuman, Distribute: ActorSystem, Rotate: ActorHuman}
+	if got := h.Manual(); !slices.Equal(got, []Stage{StageGenerate, StageRotate}) {
+		t.Errorf("Manual = %v", got)
+	}
+	if h.Automatic() {
+		t.Error("Automatic with two manual steps")
+	}
+	auto := Handling{Generate: ActorSystem, Distribute: ActorSystem, Rotate: ActorSystem}
+	if !auto.Automatic() || len(auto.Manual()) != 0 {
+		t.Error("an automatic credential")
+	}
+	if h.By("other") != "" {
+		t.Error("By of an unknown stage")
 	}
 }

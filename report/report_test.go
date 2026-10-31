@@ -18,6 +18,8 @@ func cred(id, system string, policy omnicredential.Policy, days int) omnicredent
 		Generation: omnicredential.Generation{Method: omnicredential.MethodRandom, Command: "openssl rand -hex 32"},
 		Stores:     []omnicredential.Store{{Type: omnicredential.StoreAWSSSM, Role: omnicredential.RolePrimary, Path: "/x/" + id}},
 		Rotation:   omnicredential.Rotation{Policy: policy, IntervalDays: days},
+		Handling: omnicredential.Handling{Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem,
+			Rotate: omnicredential.ActorHuman, Automation: "deploy"},
 	}
 }
 
@@ -28,6 +30,7 @@ func fixture(t *testing.T) (*omnicredential.Registry, *omnicredential.Log, time.
 	overdue.Description = `</script><script>alert(1)</script> | pipe`
 	planned := cred("a-app/staging/NEW", "a-app", omnicredential.PolicyOnDemand, 0)
 	planned.Status = omnicredential.StatusPlanned
+	planned.Handling = omnicredential.Handling{Generate: omnicredential.ActorSystem, Distribute: omnicredential.ActorSystem, Rotate: omnicredential.ActorSystem}
 	r := omnicredential.NewRegistry(ok, overdue, planned)
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
@@ -54,6 +57,9 @@ func TestBuildOrdersByUrgency(t *testing.T) {
 	want := "overdue a-app/prod/OLD,planned a-app/staging/NEW,ok b-app/prod/OK"
 	if strings.Join(got, ",") != want {
 		t.Errorf("rows = %v", got)
+	}
+	if h := rep.Handling; h.Total != 3 || h.Manual != 2 || h.Automatic != 1 || h.ByStage[omnicredential.StageRotate][omnicredential.ActorHuman] != 2 {
+		t.Errorf("handling = %+v", rep.Handling)
 	}
 	if rep.Counts[omnicredential.StateOverdue] != 1 || rep.WarnDays != 30 {
 		t.Errorf("counts = %v, warn = %d", rep.Counts, rep.WarnDays)
@@ -120,6 +126,16 @@ func TestHTMLIsSelfContainedAndEscaped(t *testing.T) {
 	if !strings.Contains(out, `const urgency = ["expired","overdue"`) {
 		t.Error("urgency order not embedded")
 	}
+	if !strings.Contains(out, "By hand: <strong>2</strong> of 3 credentials need a person for at least one step (generate 2 · distribute 0 · rotate 2) · automatic: <strong>1</strong>") {
+		t.Error("handling summary missing")
+	}
+	asOf, err := AsOfFromHTML(b.Bytes())
+	if err != nil || !asOf.Equal(now) {
+		t.Errorf("AsOfFromHTML = %v, %v", asOf, err)
+	}
+	if _, err := AsOfFromHTML([]byte("<html>")); err == nil {
+		t.Error("a page without a date")
+	}
 }
 
 func TestMarkdown(t *testing.T) {
@@ -131,14 +147,18 @@ func TestMarkdown(t *testing.T) {
 	out := b.String()
 	for _, want := range []string{
 		"# Credentials\n",
-		"| [a-app](#a-app) | 2 | 1 | 1 | 0 |",
 		"## a-app\n",
-		"| [OLD](#a-app-prod-old) | prod | random-secret | active | aws-ssm `/x/a-app/prod/OLD` | every 30 days | ops |",
+		"| [OLD](#a-app-prod-old) | prod | random-secret | active | aws-ssm `/x/a-app/prod/OLD` | every 30 days | generate, rotate | ops |",
 		`<a id="a-app-prod-old"></a>`,
 		"### a-app/prod/OLD",
 		"- **Command:** `openssl rand -hex 32`",
 		"- **Stored (primary):** aws-ssm; `/x/a-app/prod/OLD`",
 		"- **Rotation:** on-demand",
+		"| [a-app](#a-app) | 2 | 1 | 1 | 0 | 1 | 1 |",
+		"Of 3 credentials that are not retired, 2 need a person for at least one step and 1 are handled entirely by systems.",
+		"| generate | 2 | 1 |",
+		"| distribute | 0 | 3 |",
+		"- **Handling:** generate by human, distribute by system, rotate by human (automation: deploy)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)

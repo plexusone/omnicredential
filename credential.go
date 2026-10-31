@@ -45,6 +45,9 @@ type Credential struct {
 	Consumers []Consumer `json:"consumers,omitempty"`
 	// Rotation says when and how the value changes, and what that breaks.
 	Rotation Rotation `json:"rotation"`
+	// Handling says which lifecycle steps a person does and which a system
+	// does.
+	Handling Handling `json:"handling"`
 	// Revocation says how to make the value stop working quickly.
 	Revocation string `json:"revocation,omitempty"`
 	// Exposure says what someone holding a leaked value can do.
@@ -288,6 +291,74 @@ const (
 
 // Policies lists every Policy.
 func Policies() []Policy { return []Policy{PolicyScheduled, PolicyOnExpiry, PolicyOnDemand} }
+
+// Handling says who does each step of a credential's lifecycle.
+type Handling struct {
+	// Generate is who makes the value: a person running a command or
+	// using a console, or a system such as a provisioning tool.
+	Generate Actor `json:"generate"`
+	// Distribute is who gets the value from its primary store to its
+	// consumers, such as a deploy tool rendering it onto a server.
+	Distribute Actor `json:"distribute"`
+	// Rotate is who replaces the value when its policy says so.
+	Rotate Actor `json:"rotate"`
+	// Automation names the systems that do the automated steps.
+	Automation string `json:"automation,omitempty"`
+}
+
+// Actor is who does a step.
+type Actor string
+
+// Actors.
+const (
+	// ActorHuman is a person, by hand.
+	ActorHuman Actor = "human"
+	// ActorSystem is a system, with no person involved.
+	ActorSystem Actor = "system"
+)
+
+// Actors lists every Actor.
+func Actors() []Actor { return []Actor{ActorHuman, ActorSystem} }
+
+// Stage is a step of a credential's lifecycle.
+type Stage string
+
+// Stages.
+const (
+	StageGenerate   Stage = "generate"
+	StageDistribute Stage = "distribute"
+	StageRotate     Stage = "rotate"
+)
+
+// Stages lists every Stage, in lifecycle order.
+func Stages() []Stage { return []Stage{StageGenerate, StageDistribute, StageRotate} }
+
+// By returns who does the stage.
+func (h Handling) By(s Stage) Actor {
+	switch s {
+	case StageGenerate:
+		return h.Generate
+	case StageDistribute:
+		return h.Distribute
+	case StageRotate:
+		return h.Rotate
+	}
+	return ""
+}
+
+// Manual lists the stages a person does, in lifecycle order.
+func (h Handling) Manual() []Stage {
+	var out []Stage
+	for _, s := range Stages() {
+		if h.By(s) == ActorHuman {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// Automatic reports whether a system does every stage.
+func (h Handling) Automatic() bool { return len(h.Manual()) == 0 }
 
 // Link is a titled https URL.
 type Link struct {

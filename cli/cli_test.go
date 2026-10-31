@@ -21,6 +21,8 @@ func registry() *omnicredential.Registry {
 			Generation: omnicredential.Generation{Method: omnicredential.MethodRandom},
 			Stores:     []omnicredential.Store{{Type: omnicredential.StoreAWSSSM, Role: omnicredential.RolePrimary, Path: "/p/" + id}},
 			Rotation:   omnicredential.Rotation{Policy: omnicredential.PolicyScheduled, IntervalDays: days},
+			Handling: omnicredential.Handling{Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem,
+				Rotate: omnicredential.ActorHuman},
 		}
 	}
 	return omnicredential.NewRegistry(c("key-a", 30), c("key-b", 365))
@@ -76,8 +78,11 @@ func TestLifecycle(t *testing.T) {
 	if !strings.Contains(out, "overdue") || strings.Contains(out, "key-b") {
 		t.Errorf("status listed:\n%s", out)
 	}
-	if out, err = run(t, events, "status", "--fail-on", "", "--all"); err != nil || !strings.Contains(out, "key-b") {
+	if out, err = run(t, events, "status", "--fail-on", "", "--all"); err != nil || !strings.Contains(out, "key-b") || !strings.Contains(out, "generate,rotate") {
 		t.Errorf("status --all: %v\n%s", err, out)
+	}
+	if out, err = run(t, events, "status", "--fail-on", "", "--all", "--manual"); err != nil || !strings.Contains(out, "key-b") {
+		t.Errorf("status --manual: %v\n%s", err, out)
 	}
 	if _, err = run(t, events, "status", "--as-of", "2026-04-15"); err != nil {
 		t.Errorf("status before the due date failed: %v", err)

@@ -24,27 +24,42 @@ func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
 	m.blank()
 
 	systems := groupBySystem(r)
-	m.line("| System | Credentials | Planned | Active | Retired |")
-	m.line("|---|---|---|---|---|")
+	m.line("| System | Credentials | Planned | Active | Retired | By hand | Automatic |")
+	m.line("|---|---|---|---|---|---|---|")
 	for _, s := range systems {
 		counts := map[omnicredential.Status]int{}
 		for _, c := range s.creds {
 			counts[c.Status]++
 		}
-		m.linef("| [%s](#%s) | %d | %d | %d | %d |", cell(s.name), anchor(s.name), len(s.creds),
-			counts[omnicredential.StatusPlanned], counts[omnicredential.StatusActive], counts[omnicredential.StatusRetired])
+		h := Summarize(s.creds)
+		m.linef("| [%s](#%s) | %d | %d | %d | %d | %d | %d |", cell(s.name), anchor(s.name), len(s.creds),
+			counts[omnicredential.StatusPlanned], counts[omnicredential.StatusActive], counts[omnicredential.StatusRetired],
+			h.Manual, h.Automatic)
+	}
+	m.blank()
+
+	h := Summarize(r.Credentials)
+	m.line("## Who Does What")
+	m.blank()
+	m.linef("Of %d credentials that are not retired, %d need a person for at least one step and %d are handled entirely by systems.",
+		h.Total, h.Manual, h.Automatic)
+	m.blank()
+	m.line("| Step | By hand | By a system |")
+	m.line("|---|---|---|")
+	for _, st := range omnicredential.Stages() {
+		m.linef("| %s | %d | %d |", st, h.ByStage[st][omnicredential.ActorHuman], h.ByStage[st][omnicredential.ActorSystem])
 	}
 	m.blank()
 
 	for _, s := range systems {
 		m.line("## " + s.name)
 		m.blank()
-		m.line("| Credential | Environment | Kind | Status | Primary store | Rotation | Owner |")
-		m.line("|---|---|---|---|---|---|---|")
+		m.line("| Credential | Environment | Kind | Status | Primary store | Rotation | By hand | Owner |")
+		m.line("|---|---|---|---|---|---|---|---|")
 		for _, c := range s.creds {
-			m.linef("| [%s](#%s) | %s | %s | %s | %s | %s | %s |",
+			m.linef("| [%s](#%s) | %s | %s | %s | %s | %s | %s | %s |",
 				cell(c.Name), anchor(c.ID), cell(orDash(c.Environment)), cell(c.Kind), c.Status,
-				cell(storeSummary(c)), cell(rotationSummary(c.Rotation)), cell(c.Owner))
+				cell(storeSummary(c)), cell(rotationSummary(c.Rotation)), cell(manualSummary(c.Handling)), cell(c.Owner))
 		}
 		m.blank()
 		for _, c := range s.creds {
@@ -112,6 +127,7 @@ func details(m *md, c omnicredential.Credential) {
 	for _, u := range c.Consumers {
 		field("Used by", strings.Join(nonEmpty(strings.Join(nonEmpty(u.System, u.Component), " / "), u.Via, u.Note), "; "))
 	}
+	field("Handling", handlingSummary(c.Handling))
 	field("Rotation", rotationSummary(c.Rotation))
 	field("Rotation procedure", c.Rotation.Procedure)
 	field("Rotation impact", c.Rotation.Impact)
@@ -137,6 +153,30 @@ func storeSummary(c omnicredential.Credential) string {
 		parts = append(parts, strings.Join(nonEmpty(s.Type, code(s.Path)), " "))
 	}
 	return orDash(strings.Join(parts, ", "))
+}
+
+// manualSummary lists the steps done by hand, or "none".
+func manualSummary(h omnicredential.Handling) string {
+	var parts []string
+	for _, st := range h.Manual() {
+		parts = append(parts, string(st))
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, ", ")
+}
+
+func handlingSummary(h omnicredential.Handling) string {
+	var parts []string
+	for _, st := range omnicredential.Stages() {
+		parts = append(parts, fmt.Sprintf("%s by %s", st, h.By(st)))
+	}
+	s := strings.Join(parts, ", ")
+	if h.Automation != "" {
+		s += " (automation: " + h.Automation + ")"
+	}
+	return s
 }
 
 func rotationSummary(r omnicredential.Rotation) string {

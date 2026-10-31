@@ -27,7 +27,48 @@ type Report struct {
 	AsOf     time.Time                    `json:"asOf"`
 	WarnDays int                          `json:"warnDays"`
 	Counts   map[omnicredential.State]int `json:"counts"`
+	Handling HandlingSummary              `json:"handling"`
 	Rows     []Row                        `json:"rows"`
+}
+
+// HandlingSummary counts who does each lifecycle step, over the
+// credentials that are not retired.
+type HandlingSummary struct {
+	// Total is the number of credentials counted.
+	Total int `json:"total"`
+	// Manual is how many have at least one step done by a person.
+	Manual int `json:"manual"`
+	// Automatic is how many have every step done by a system.
+	Automatic int `json:"automatic"`
+	// ByStage counts each stage's actors.
+	ByStage map[omnicredential.Stage]map[omnicredential.Actor]int `json:"byStage"`
+}
+
+// Summarize counts who does each step of the credentials, leaving out
+// retired ones.
+func Summarize(creds []omnicredential.Credential) HandlingSummary {
+	h := HandlingSummary{ByStage: map[omnicredential.Stage]map[omnicredential.Actor]int{}}
+	for _, st := range omnicredential.Stages() {
+		h.ByStage[st] = map[omnicredential.Actor]int{}
+		for _, a := range omnicredential.Actors() {
+			h.ByStage[st][a] = 0
+		}
+	}
+	for _, c := range creds {
+		if c.Status == omnicredential.StatusRetired {
+			continue
+		}
+		h.Total++
+		if c.Handling.Automatic() {
+			h.Automatic++
+		} else {
+			h.Manual++
+		}
+		for _, st := range omnicredential.Stages() {
+			h.ByStage[st][c.Handling.By(st)]++
+		}
+	}
+	return h
 }
 
 // Urgency orders states for attention: the ones needing action first,
@@ -64,6 +105,7 @@ func Build(title string, r *omnicredential.Registry, l *omnicredential.Log, now 
 		rep.Rows = append(rep.Rows, Row{Credential: c, Record: rec, Assessment: a, History: h})
 		rep.Counts[a.State]++
 	}
+	rep.Handling = Summarize(r.Credentials)
 	order := Urgency()
 	slices.SortStableFunc(rep.Rows, func(a, b Row) int {
 		return cmp.Or(

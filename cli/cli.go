@@ -167,7 +167,7 @@ func parseStates(s string) ([]omnicredential.State, error) {
 func (e *env) status() *cobra.Command {
 	var w when
 	var failOn, states, system, environment string
-	var all bool
+	var all, manual bool
 	c := &cobra.Command{
 		Use:   "status",
 		Short: "List credentials that need attention, and fail when any is in a --fail-on state",
@@ -200,7 +200,8 @@ func (e *env) status() *cobra.Command {
 				case system != "" && row.Credential.System != system,
 					environment != "" && row.Credential.Environment != environment,
 					len(show) > 0 && !slices.Contains(show, st),
-					len(show) == 0 && !all && slices.Contains(quiet, st):
+					len(show) == 0 && !all && slices.Contains(quiet, st),
+					manual && row.Credential.Handling.Automatic():
 					continue
 				}
 				rows = append(rows, row)
@@ -224,6 +225,7 @@ func (e *env) status() *cobra.Command {
 	c.Flags().StringVar(&failOn, "fail-on", "expired,overdue", "comma-separated states that make the command fail; empty never fails")
 	c.Flags().StringVar(&states, "state", "", "comma-separated states to list (default: all but ok, planned and retired)")
 	c.Flags().BoolVar(&all, "all", false, "list every credential")
+	c.Flags().BoolVar(&manual, "manual", false, "only credentials with a step done by hand")
 	c.Flags().StringVar(&system, "system", "", "only this system")
 	c.Flags().StringVar(&environment, "env", "", "only this environment")
 	return c
@@ -239,11 +241,19 @@ func joinStates(states []omnicredential.State) string {
 
 func statusTable(w io.Writer, rows []report.Row, total int, now time.Time) error {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintf(tw, "STATE\tCREDENTIAL\tOWNER\tREASON\n"); err != nil {
+	if _, err := fmt.Fprintf(tw, "STATE\tCREDENTIAL\tOWNER\tBY HAND\tREASON\n"); err != nil {
 		return err
 	}
 	for _, row := range rows {
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", row.Assessment.State, row.Credential.ID, row.Credential.Owner, row.Assessment.Reason); err != nil {
+		byHand := "none"
+		if m := row.Credential.Handling.Manual(); len(m) > 0 {
+			parts := make([]string, len(m))
+			for i, st := range m {
+				parts[i] = string(st)
+			}
+			byHand = strings.Join(parts, ",")
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", row.Assessment.State, row.Credential.ID, row.Credential.Owner, byHand, row.Assessment.Reason); err != nil {
 			return err
 		}
 	}
@@ -284,6 +294,9 @@ func (e *env) report() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				// Reports are assessed at the start of a day, so a page
+				// written today is rebuilt byte for byte from its date.
+				now = now.UTC().Truncate(24 * time.Hour)
 				r, l, err := e.load()
 				if err != nil {
 					return err

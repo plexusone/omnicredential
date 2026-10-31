@@ -127,6 +127,10 @@
           "$ref": "#/$defs/Rotation",
           "description": "Rotation says when and how the value changes, and what that breaks."
         },
+        "handling": {
+          "$ref": "#/$defs/Handling",
+          "description": "Handling says which lifecycle steps a person does and which a system\ndoes."
+        },
         "revocation": {
           "type": "string",
           "description": "Revocation says how to make the value stop working quickly."
@@ -168,7 +172,8 @@
         "owner",
         "issuer",
         "generation",
-        "rotation"
+        "rotation",
+        "handling"
       ],
       "description": "Credential is one secret in one place for one environment."
     },
@@ -234,6 +239,46 @@
         "method"
       ],
       "description": "Generation says how and where a value is made."
+    },
+    "Handling": {
+      "properties": {
+        "generate": {
+          "type": "string",
+          "enum": [
+            "human",
+            "system"
+          ],
+          "description": "Generate is who makes the value: a person running a command or\nusing a console, or a system such as a provisioning tool."
+        },
+        "distribute": {
+          "type": "string",
+          "enum": [
+            "human",
+            "system"
+          ],
+          "description": "Distribute is who gets the value from its primary store to its\nconsumers, such as a deploy tool rendering it onto a server."
+        },
+        "rotate": {
+          "type": "string",
+          "enum": [
+            "human",
+            "system"
+          ],
+          "description": "Rotate is who replaces the value when its policy says so."
+        },
+        "automation": {
+          "type": "string",
+          "description": "Automation names the systems that do the automated steps."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "generate",
+        "distribute",
+        "rotate"
+      ],
+      "description": "Handling says who does each step of a credential's lifecycle."
     },
     "Issuer": {
       "properties": {

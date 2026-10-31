@@ -38,6 +38,10 @@ func Example() {
 				Policy: omnicredential.PolicyScheduled, IntervalDays: 180,
 				Impact: "everyone is signed out once",
 			},
+			Handling: omnicredential.Handling{
+				Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem, Rotate: omnicredential.ActorHuman,
+				Automation: "the deploy tool renders it onto the server",
+			},
 			Revocation: "Rotate it and restart the service.",
 		}
 	}

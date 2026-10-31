@@ -2,19 +2,19 @@
 
 ## Phase 1: Registry
 
-- [ ] **RMI-OMNICREDENTIAL-001** Credential types: the entry, its parts, well-known and closed values
-- [ ] **RMI-OMNICREDENTIAL-002** Validation of a registry, reporting every problem with its entry
-- [ ] **RMI-OMNICREDENTIAL-003** Event log: types, validation, sorted append, records
-- [ ] **RMI-OMNICREDENTIAL-004** State: assessment of each credential at a time, with a warning window
-- [ ] **RMI-OMNICREDENTIAL-005** JSON load and save; JSON Schemas generated from the types
+- [x] **RMI-OMNICREDENTIAL-001** Credential types: the entry, its parts, well-known and closed values
+- [x] **RMI-OMNICREDENTIAL-002** Validation of a registry, reporting every problem with its entry
+- [x] **RMI-OMNICREDENTIAL-003** Event log: types, validation, sorted append, records
+- [x] **RMI-OMNICREDENTIAL-004** State: assessment of each credential at a time, with a warning window
+- [x] **RMI-OMNICREDENTIAL-005** JSON load and save; JSON Schemas generated from the types
 
 ## Phase 2: Reports and Command Line
 
-- [ ] **RMI-OMNICREDENTIAL-006** Report rows and the JSON report
-- [ ] **RMI-OMNICREDENTIAL-007** Self-contained HTML report with search, filters, sorting and details
-- [ ] **RMI-OMNICREDENTIAL-008** Markdown reference, independent of time
-- [ ] **RMI-OMNICREDENTIAL-009** Mountable commands: validate, status, report, record, export, schema
-- [ ] **RMI-OMNICREDENTIAL-010** Standalone command over JSON files
+- [x] **RMI-OMNICREDENTIAL-006** Report rows and the JSON report
+- [x] **RMI-OMNICREDENTIAL-007** Self-contained HTML report with search, filters, sorting and details
+- [x] **RMI-OMNICREDENTIAL-008** Markdown reference, independent of time
+- [x] **RMI-OMNICREDENTIAL-009** Mountable commands: validate, status, report, record, export, schema
+- [x] **RMI-OMNICREDENTIAL-010** Standalone command over JSON files
 
 ## Phase 3: Observed State
 

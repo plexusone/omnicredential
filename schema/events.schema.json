@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/plexusone/omnicredential/schema/events.schema.json",
+  "$ref": "#/$defs/Log",
+  "$defs": {
+    "Event": {
+      "properties": {
+        "credential": {
+          "type": "string",
+          "description": "Credential is the credential's ID."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "created",
+            "rotated",
+            "expires",
+            "verified",
+            "revoked"
+          ],
+          "description": "Type is what happened."
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "At is when it happened."
+        },
+        "expires": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Expires is the value's expiry: required for EventExpires, optional\nfor EventCreated and EventRotated, and not allowed otherwise."
+        },
+        "by": {
+          "type": "string",
+          "description": "By is who did it."
+        },
+        "note": {
+          "type": "string",
+          "description": "Note adds detail."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "credential",
+        "type",
+        "at"
+      ],
+      "description": "Event is one thing that happened to a credential."
+    },
+    "Log": {
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Schema is the JSON Schema the file names, if any."
+        },
+        "formatVersion": {
+          "type": "string",
+          "enum": [
+            "1"
+          ],
+          "description": "FormatVersion is FormatVersion."
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/Event"
+          },
+          "type": "array",
+          "description": "Events are sorted by Less."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "formatVersion",
+        "events"
+      ],
+      "description": "Log is the append-only history of credentials."
+    }
+  },
+  "title": "Credential events",
+  "description": "The append-only history of a registry's credentials: when each was created, rotated, verified, given an expiry or revoked."
+}

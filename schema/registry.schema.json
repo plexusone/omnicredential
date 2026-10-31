@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/plexusone/omnicredential/schema/registry.schema.json",
+  "$ref": "#/$defs/Registry",
+  "$defs": {
+    "Consumer": {
+      "properties": {
+        "system": {
+          "type": "string",
+          "description": "System is the system that reads it."
+        },
+        "component": {
+          "type": "string",
+          "description": "Component is the part of the system, such as a service or a job."
+        },
+        "via": {
+          "type": "string",
+          "description": "Via is how it reads it, such as an environment variable, a file or\na configuration key."
+        },
+        "note": {
+          "type": "string",
+          "description": "Note adds detail."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "system"
+      ],
+      "description": "Consumer is one reader of a value."
+    },
+    "Credential": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/:@-]*$",
+          "description": "ID is stable and unique, such as \"example-app/prod/SESSION_KEY\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name is the display name, often the variable or parameter name."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description says what the credential is for."
+        },
+        "system": {
+          "type": "string",
+          "description": "System is the system that owns the credential."
+        },
+        "environment": {
+          "type": "string",
+          "description": "Environment is \"prod\", \"staging\" and so on; empty when one value\nserves every environment."
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Kind is a well-known kind such as KindRandomSecret, or another slug.",
+          "examples": [
+            "random-secret",
+            "password",
+            "private-key",
+            "certificate",
+            "connection-string",
+            "oauth-client",
+            "api-token",
+            "personal-access-token",
+            "access-key",
+            "encryption-key",
+            "ssh-key",
+            "federated"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "active",
+            "retired"
+          ],
+          "description": "Status is planned, active or retired."
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "description": "Sensitivity is how much harm a leak does."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Owner is the person or role who creates and rotates it."
+        },
+        "issuer": {
+          "$ref": "#/$defs/Issuer",
+          "description": "Issuer is the service that issues or accepts the credential."
+        },
+        "generation": {
+          "$ref": "#/$defs/Generation",
+          "description": "Generation says how and where the value is made."
+        },
+        "entitlements": {
+          "items": {
+            "$ref": "#/$defs/Entitlement"
+          },
+          "type": "array",
+          "description": "Entitlements are what a holder of the value may do."
+        },
+        "stores": {
+          "items": {
+            "$ref": "#/$defs/Store"
+          },
+          "type": "array",
+          "description": "Stores are where the value is kept."
+        },
+        "consumers": {
+          "items": {
+            "$ref": "#/$defs/Consumer"
+          },
+          "type": "array",
+          "description": "Consumers are who reads the value, and through what."
+        },
+        "rotation": {
+          "$ref": "#/$defs/Rotation",
+          "description": "Rotation says when and how the value changes, and what that breaks."
+        },
+        "revocation": {
+          "type": "string",
+          "description": "Revocation says how to make the value stop working quickly."
+        },
+        "exposure": {
+          "type": "string",
+          "description": "Exposure says what someone holding a leaked value can do."
+        },
+        "dependsOn": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "DependsOn lists the IDs this credential is derived from, such as\nthe password inside a connection string."
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Tags are free labels."
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "type": "array",
+          "description": "Links point to documentation and consoles."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "system",
+        "kind",
+        "status",
+        "owner",
+        "issuer",
+        "generation",
+        "rotation"
+      ],
+      "description": "Credential is one secret in one place for one environment."
+    },
+    "Entitlement": {
+      "properties": {
+        "resource": {
+          "type": "string",
+          "description": "Resource is what it applies to, such as a repository or a path."
+        },
+        "access": {
+          "type": "string",
+          "description": "Access is what it may do there, such as \"contents: read\"."
+        },
+        "note": {
+          "type": "string",
+          "description": "Note adds detail."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "resource",
+        "access"
+      ],
+      "description": "Entitlement is one thing a holder of the value may do."
+    },
+    "Generation": {
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "random",
+            "keypair",
+            "issued",
+            "derived",
+            "federated"
+          ],
+          "description": "Method is how the value comes to exist."
+        },
+        "spec": {
+          "type": "string",
+          "description": "Spec describes the value, such as \"32 random bytes, hex\" or\n\"RSA 3072, PEM\"."
+        },
+        "where": {
+          "type": "string",
+          "description": "Where is the place it is generated, such as \"the operator's\nmachine\" or a console page."
+        },
+        "command": {
+          "type": "string",
+          "description": "Command generates the value, when one command does."
+        },
+        "steps": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Steps are the manual steps, in order."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "description": "Generation says how and where a value is made."
+    },
+    "Issuer": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Type is a well-known issuer such as IssuerGitHub, or another slug.",
+          "examples": [
+            "self",
+            "aws",
+            "cloudflare",
+            "github",
+            "google-cloud",
+            "postgres",
+            "stripe"
+          ]
+        },
+        "account": {
+          "type": "string",
+          "description": "Account is the organization, project or account at the issuer."
+        },
+        "console": {
+          "type": "string",
+          "format": "uri",
+          "description": "Console is the https URL where it is managed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "description": "Issuer is the service that issues or accepts a credential."
+    },
+    "Link": {
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "title",
+        "url"
+      ],
+      "description": "Link is a titled https URL."
+    },
+    "Registry": {
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Schema is the JSON Schema the file names, if any."
+        },
+        "formatVersion": {
+          "type": "string",
+          "enum": [
+            "1"
+          ],
+          "description": "FormatVersion is FormatVersion."
+        },
+        "credentials": {
+          "items": {
+            "$ref": "#/$defs/Credential"
+          },
+          "type": "array",
+          "description": "Credentials are the entries, in the order given."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "formatVersion",
+        "credentials"
+      ],
+      "description": "Registry is a list of credentials."
+    },
+    "Rotation": {
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": [
+            "scheduled",
+            "on-expiry",
+            "on-demand"
+          ],
+          "description": "Policy is when it rotates."
+        },
+        "intervalDays": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "IntervalDays is the rotation period, for PolicyScheduled only."
+        },
+        "procedure": {
+          "type": "string",
+          "description": "Procedure is how to rotate it."
+        },
+        "impact": {
+          "type": "string",
+          "description": "Impact is what breaks, or who notices, when it rotates."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "policy"
+      ],
+      "description": "Rotation says when and how a value changes."
+    },
+    "Store": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Type is a well-known store such as StoreAWSSSM, or another slug.",
+          "examples": [
+            "aws-ssm",
+            "aws-secrets-manager",
+            "aws-kms",
+            "github-actions",
+            "password-manager",
+            "pulumi-config",
+            "host-file",
+            "local-file",
+            "none"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "backup",
+            "rendered"
+          ],
+          "description": "Role says whether this is the source of truth, a backup or a copy\nwritten at deploy time."
+        },
+        "account": {
+          "type": "string",
+          "description": "Account is the account, organization or vault holding it."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path is the parameter, secret, item or file name."
+        },
+        "note": {
+          "type": "string",
+          "description": "Note adds detail."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type",
+        "role"
+      ],
+      "description": "Store is one place a value is kept."
+    }
+  },
+  "title": "Credential registry",
+  "description": "Every credential of a set of systems, without values: what each is for, how and where it is made, what it may do, where it is stored, who uses it and how it rotates."
+}

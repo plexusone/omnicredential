@@ -35,6 +35,7 @@ both from one function.
 | `stores` | list | `type` (slug), `role` (enum), `account`, `path`, `note` |
 | `consumers` | list | `system`, `component`, `via`, `note` |
 | `rotation` | object | `policy` (enum), `intervalDays`, `procedure`, `impact` |
+| `handling` | object | `generate`, `distribute`, `rotate` (each `human` or `system`), `automation` |
 | `revocation` | string | How to revoke it quickly |
 | `exposure` | string | What a holder of the value can do |
 | `dependsOn` | list | IDs this one is derived from, such as a DSN from a password |
@@ -61,11 +62,15 @@ Closed sets:
   copy), `rendered` (written from the primary at deploy time).
 - **rotation policy:** `scheduled` (every `intervalDays`), `on-expiry`
   (before the issuer's expiry), `on-demand` (only on compromise or need).
+- **actor**, for each `handling` stage: `human` (a person, by hand) or
+  `system`. `generate` makes the value, `distribute` gets it from its
+  primary store to its consumers, `rotate` replaces it. `automation`
+  names the systems doing the `system` stages.
 
 ## Validation
 
-- `id`, `name`, `system`, `kind`, `status`, `owner`, `generation.method`
-  and `rotation.policy` are required; IDs are unique.
+- `id`, `name`, `system`, `kind`, `status`, `owner`, `generation.method`,
+  `rotation.policy` and each `handling` stage are required; IDs are unique.
 - Closed sets hold only their values; open sets are slugs.
 - At least one store with role `primary`, unless the method is
   `federated`.
@@ -114,16 +119,22 @@ The default warning window is 30 days.
 ## Reports
 
 All three are built from the same rows: each credential, its record,
-its assessment and its events.
+its assessment and its events. Each counts the credentials that need a
+person for at least one stage, those handled entirely by systems, and
+each stage's human and system counts.
 
 - **HTML:** one file with no external requests. It holds the rows as
   JSON in a `<script type="application/json">` element, written through
   `html/template`, and a short script draws the table. It offers a text
   search over ID, name, description and paths; filters for system,
   environment, kind, state, issuer, store, consumer, owner, sensitivity
-  and tag; sortable columns; counts per state; and a detail panel per
+  and tag, and by who does each stage; sortable columns; counts per state;
+  the handling counts; and a detail panel per
   row with every attribute and the history. Light and dark themes
-  follow the viewer's setting.
+  follow the viewer's setting. The page is assessed at the start of a
+  day (UTC) and records that date in a `meta` element, so a committed
+  copy can be rebuilt from the same registry, events and date and
+  compared byte for byte.
 - **Markdown:** a section per system with a table and the details of
   each entry. It uses only the registry, never the time or the events,
   so a test can check a committed copy is current.

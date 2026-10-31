@@ -33,6 +33,9 @@ credential stands.
 - **Registry in Go or JSON.** Build it in Go, so one loop makes each
   environment's entries, or write JSON. Both validate against the same
   rules; the JSON Schemas are generated from the Go types.
+- **Who does what.** Each credential says whether a person or a system
+  generates, distributes and rotates it, and the reports count how many
+  need you by hand and how many are fully automatic.
 - **Lifecycle state.** Each credential is `ok`, `due`, `overdue`,
   `expiring`, `expired`, `unknown-expiry`, `unrecorded`, `planned` or
   `retired`, from its rotation policy and its events.
@@ -66,7 +69,7 @@ omnicredential report   --format html -o credentials.html --registry credentials
 | Command | What it does |
 |---|---|
 | `validate` | Checks the registry and the event log |
-| `status` | Lists credentials needing attention; fails on `--fail-on` states (default `expired,overdue`) |
+| `status` | Lists credentials needing attention; fails on `--fail-on` states (default `expired,overdue`); `--manual` for only those with a step by hand |
 | `report` | Writes `--format html`, `markdown` or `json` |
 | `record <id> <type>` | Adds a `created`, `rotated`, `expires`, `verified` or `revoked` event |
 | `export` | Writes the registry as JSON |
@@ -91,6 +94,7 @@ for _, env := range []string{"staging", "prod"} {
 		Generation:  omnicredential.Generation{Method: omnicredential.MethodRandom, Command: "openssl rand -hex 32"},
 		Stores:      []omnicredential.Store{{Type: omnicredential.StoreAWSSSM, Role: omnicredential.RolePrimary, Path: "/example/" + env + "/SESSION_KEY"}},
 		Rotation:    omnicredential.Rotation{Policy: omnicredential.PolicyScheduled, IntervalDays: 180},
+		Handling:    omnicredential.Handling{Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem, Rotate: omnicredential.ActorHuman},
 	})
 }
 ```

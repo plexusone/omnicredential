@@ -15,6 +15,7 @@
 - [x] **RMI-OMNICREDENTIAL-008** Markdown reference, independent of time
 - [x] **RMI-OMNICREDENTIAL-009** Mountable commands: validate, status, report, record, export, schema
 - [x] **RMI-OMNICREDENTIAL-010** Standalone command over JSON files
+- [x] **RMI-OMNICREDENTIAL-020** Handling: whether a person or a system generates, distributes and rotates each credential, counted in every report
 
 ## Phase 3: Observed State
 

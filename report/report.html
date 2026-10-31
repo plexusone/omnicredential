@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{.Title}}</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1f23; --muted: #5f6570; --line: #e2e3e0;
+  --accent: #2f5bd3; --chip: #eef0f3; --row-hover: #f2f4f8;
+  --s-expired: #b42318; --s-overdue: #c4320a; --s-expiring: #b54708; --s-due: #a15c07;
+  --s-unrecorded: #6941c6; --s-unknown-expiry: #7a5af8; --s-planned: #475467;
+  --s-ok: #067647; --s-retired: #98a2b3;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317; --panel: #191c21; --text: #e6e7ea; --muted: #9aa1ad; --line: #2b2f36;
+    --accent: #7aa2ff; --chip: #23272e; --row-hover: #1f232a;
+    --s-expired: #f97066; --s-overdue: #fd853a; --s-expiring: #fdb022; --s-due: #fec84b;
+    --s-unrecorded: #b692f6; --s-unknown-expiry: #bdb4fe; --s-planned: #98a2b3;
+    --s-ok: #47cd89; --s-retired: #667085;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header, main { max-width: 1400px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; margin: 8px 0 2px; }
+.meta { color: var(--muted); font-size: 13px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.chip { border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  border-radius: 999px; padding: 3px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+.chip[aria-pressed="true"] { outline: 2px solid var(--accent); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.toolbar { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.toolbar label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
+.toolbar .search { grid-column: 1 / -1; }
+input, select, button.act { font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 10px 0; }
+button.act { cursor: pointer; }
+.tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; white-space: nowrap; user-select: none; }
+th[aria-sort="ascending"]::after { content: " ▲"; }
+th[aria-sort="descending"]::after { content: " ▼"; }
+tr.item { cursor: pointer; }
+tr.item:hover { background: var(--row-hover); }
+tr.item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.id { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.state { white-space: nowrap; font-weight: 600; }
+.nowrap { white-space: nowrap; }
+tr.detail > td { background: var(--bg); padding: 14px 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px 28px; }
+.grid h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+ul.plain { margin: 0; padding-left: 18px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  background: var(--chip); padding: 1px 4px; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+footer { color: var(--muted); font-size: 12px; max-width: 1400px; margin: 0 auto; padding: 0 16px 24px; }
+@media (max-width: 700px) { .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{.Title}}</h1>
+  <div class="meta">State as of {{.AsOf}} · warnings {{.WarnDays}} days ahead · {{.Total}} credentials · no secret values are included</div>
+  <div class="chips" id="chips" role="group" aria-label="Filter by state"></div>
+</header>
+<main>
+  <div class="toolbar" id="toolbar">
+    <label class="search">Search
+      <input type="search" id="q" placeholder="ID, name, description, path, consumer, entitlement…" autocomplete="off">
+    </label>
+  </div>
+  <div class="bar">
+    <span id="shown" class="meta" aria-live="polite"></span>
+    <span>
+      <button class="act" id="clear" type="button">Clear filters</button>
+      <button class="act" id="csv" type="button">Download CSV</button>
+    </span>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>No credentials match.</div>
+  </div>
+</main>
+<footer>Generated by omnicredential. Keep this page with the registry: it lists where every credential is stored.</footer>
+<script type="application/json" id="data">{{.Rows}}</script>
+<script>
+"use strict";
+(function () {
+  const rows = JSON.parse(document.getElementById("data").textContent);
+  const urgency = {{.Urgency}};
+  const el = (tag, attrs, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === "class") n.className = v; else n.setAttribute(k, v);
+    }
+    for (const k of kids) if (k !== null && k !== undefined && k !== "") n.append(k instanceof Node ? k : String(k));
+    return n;
+  };
+  const uniq = (a) => [...new Set(a.filter((x) => x !== "" && x !== undefined && x !== null))];
+  const day = (s) => (s ? String(s).slice(0, 10) : "");
+  const rot = (r) => (r.policy === "scheduled" ? "every " + r.intervalDays + " days" : r.policy);
+  const color = (s) => "var(--s-" + s + ")";
+
+  const facets = [
+    { key: "system", label: "System", get: (r) => [r.credential.system] },
+    { key: "env", label: "Environment", get: (r) => [r.credential.environment || "(all)"] },
+    { key: "kind", label: "Kind", get: (r) => [r.credential.kind] },
+    { key: "state", label: "State", get: (r) => [r.assessment.state] },
+    { key: "issuer", label: "Issuer", get: (r) => [r.credential.issuer.type] },
+    { key: "store", label: "Store", get: (r) => uniq((r.credential.stores || []).map((s) => s.type)) },
+    { key: "consumer", label: "Used by", get: (r) => uniq((r.credential.consumers || []).map((c) => c.system)) },
+    { key: "owner", label: "Owner", get: (r) => [r.credential.owner] },
+    { key: "sensitivity", label: "Sensitivity", get: (r) => [r.credential.sensitivity || "(unset)"] },
+    { key: "policy", label: "Rotation", get: (r) => [r.credential.rotation.policy] },
+    { key: "tag", label: "Tag", get: (r) => r.credential.tags || [] },
+  ];
+  const haystack = (r) => {
+    const c = r.credential;
+    return [c.id, c.name, c.description, c.exposure, c.issuer.account,
+      ...(c.stores || []).flatMap((s) => [s.path, s.account, s.note]),
+      ...(c.consumers || []).flatMap((u) => [u.system, u.component, u.via]),
+      ...(c.entitlements || []).flatMap((e) => [e.resource, e.access]),
+      ...(c.tags || [])].filter(Boolean).join(" ").toLowerCase();
+  };
+  rows.forEach((r) => { r._hay = haystack(r); });
+
+  const columns = [
+    { key: "state", label: "State", val: (r) => urgency.indexOf(r.assessment.state),
+      cell: (r) => el("span", { class: "state", style: "color:" + color(r.assessment.state), title: r.assessment.reason },
+        el("span", { class: "dot", style: "background:" + color(r.assessment.state) }), r.assessment.state) },
+    { key: "name", label: "Credential", val: (r) => r.credential.id,
+      cell: (r) => el("div", {}, el("div", {}, r.credential.name), el("div", { class: "id" }, r.credential.id)) },
+    { key: "system", label: "System", val: (r) => r.credential.system },
+    { key: "env", label: "Env", val: (r) => r.credential.environment || "" },
+    { key: "kind", label: "Kind", val: (r) => r.credential.kind, hide: true },
+    { key: "issuer", label: "Issuer", val: (r) => r.credential.issuer.type, hide: true },
+    { key: "store", label: "Store", val: (r) => (r.credential.stores || []).filter((s) => s.role === "primary").map((s) => s.type).join(", "), hide: true },
+    { key: "owner", label: "Owner", val: (r) => r.credential.owner, hide: true },
+    { key: "rotation", label: "Rotation", val: (r) => rot(r.credential.rotation), hide: true },
+    { key: "next", label: "Next date", val: (r) => day(r.assessment.next) || "9999", cell: (r) => el("span", { class: "nowrap" }, day(r.assessment.next) || "–") },
+  ];
+
+  const state = { q: "", f: {}, sort: "state", dir: 1, open: new Set() };
+  const readHash = () => {
+    const p = new URLSearchParams(location.hash.slice(1));
+    state.q = p.get("q") || "";
+    state.f = {};
+    for (const f of facets) if (p.get(f.key)) state.f[f.key] = p.get(f.key);
+    if (p.get("sort")) state.sort = p.get("sort");
+    state.dir = p.get("dir") === "desc" ? -1 : 1;
+  };
+  const writeHash = () => {
+    const p = new URLSearchParams();
+    if (state.q) p.set("q", state.q);
+    for (const [k, v] of Object.entries(state.f)) if (v) p.set(k, v);
+    if (state.sort !== "state") p.set("sort", state.sort);
+    if (state.dir < 0) p.set("dir", "desc");
+    const h = p.toString();
+    history.replaceState(null, "", h ? "#" + h : location.pathname + location.search);
+  };
+
+  const toolbar = document.getElementById("toolbar");
+  const selects = {};
+  for (const f of facets) {
+    const counts = {};
+    rows.forEach((r) => f.get(r).forEach((v) => { counts[v] = (counts[v] || 0) + 1; }));
+    const values = Object.keys(counts).sort((a, b) =>
+      f.key === "state" ? urgency.indexOf(a) - urgency.indexOf(b) : a.localeCompare(b));
+    if (values.length < 2 && f.key !== "state") continue;
+    const sel = el("select", { "data-key": f.key }, el("option", { value: "" }, "All"));
+    values.forEach((v) => sel.append(el("option", { value: v }, v + " (" + counts[v] + ")")));
+    sel.addEventListener("change", () => { state.f[f.key] = sel.value; render(); });
+    selects[f.key] = sel;
+    toolbar.append(el("label", {}, f.label, sel));
+  }
+
+  const chips = document.getElementById("chips");
+  const stateCounts = {};
+  rows.forEach((r) => { stateCounts[r.assessment.state] = (stateCounts[r.assessment.state] || 0) + 1; });
+  urgency.filter((s) => stateCounts[s]).forEach((s) => {
+    const b = el("button", { class: "chip", type: "button", "data-state": s, "aria-pressed": "false" },
+      el("span", { class: "dot", style: "background:" + color(s) }), s + " " + stateCounts[s]);
+    b.addEventListener("click", () => { state.f.state = state.f.state === s ? "" : s; render(); });
+    chips.append(b);
+  });
+
+  const q = document.getElementById("q");
+  q.addEventListener("input", () => { state.q = q.value; render(); });
+  document.getElementById("clear").addEventListener("click", () => { state.q = ""; state.f = {}; render(); });
+
+  const head = document.getElementById("head");
+  for (const c of columns) {
+    const th = el("th", { scope: "col", tabindex: "0", "data-key": c.key, class: c.hide ? "hide-sm" : "" }, c.label);
+    const go = () => { state.dir = state.sort === c.key ? -state.dir : 1; state.sort = c.key; render(); };
+    th.addEventListener("click", go);
+    th.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    head.append(th);
+  }
+
+  const visible = () => {
+    const needle = state.q.trim().toLowerCase();
+    const col = columns.find((c) => c.key === state.sort) || columns[0];
+    return rows.filter((r) => (!needle || r._hay.includes(needle)) &&
+      facets.every((f) => !state.f[f.key] || f.get(r).includes(state.f[f.key])))
+      .sort((a, b) => {
+        const x = col.val(a), y = col.val(b);
+        const d = typeof x === "number" ? x - y : String(x).localeCompare(String(y));
+        return d * state.dir || a.credential.id.localeCompare(b.credential.id);
+      });
+  };
+
+  const link = (url, text) => (/^https:\/\//.test(url) ? el("a", { href: url, rel: "noopener noreferrer", target: "_blank" }, text || url) : text || url);
+  const dl = (pairs) => {
+    const d = el("dl");
+    pairs.forEach(([k, v]) => { if (v !== "" && v !== undefined && v !== null && !(Array.isArray(v) && !v.length)) d.append(el("dt", {}, k), el("dd", {}, v)); });
+    return d;
+  };
+  const list = (items) => (items.length ? el("ul", { class: "plain" }, ...items.map((i) => el("li", {}, i))) : "");
+  const section = (title, body) => (body ? el("div", {}, el("h3", {}, title), body) : "");
+  const join = (...parts) => parts.filter(Boolean).join(" · ");
+
+  const detail = (r) => {
+    const c = r.credential, g = c.generation, rec = r.record;
+    const deps = (c.dependsOn || []).map((d) => {
+      const a = el("a", { href: "#" }, d);
+      a.addEventListener("click", (e) => { e.preventDefault(); state.q = d; state.f = {}; state.open.add(d); render(); });
+      return a;
+    });
+    return el("div", { class: "grid" },
+      section("About", dl([["Description", c.description], ["Exposure", c.exposure], ["Sensitivity", c.sensitivity],
+        ["Status", c.status], ["Owner", c.owner], ["State", r.assessment.state + ": " + r.assessment.reason],
+        ["Tags", (c.tags || []).join(", ")], ["Depends on", deps.length ? el("span", {}, ...deps.flatMap((a, i) => (i ? [", ", a] : [a]))) : ""]])),
+      section("Issued and generated", dl([["Issuer", join(c.issuer.type, c.issuer.account)],
+        ["Console", c.issuer.console ? link(c.issuer.console) : ""], ["Method", g.method], ["Spec", g.spec], ["Where", g.where],
+        ["Command", g.command ? el("code", {}, g.command) : ""], ["Steps", g.steps && g.steps.length ? el("ol", { class: "plain" }, ...g.steps.map((s) => el("li", {}, s))) : ""]])),
+      section("Entitlements", list((c.entitlements || []).map((e) => el("span", {}, el("code", {}, e.resource), " ", e.access, e.note ? " — " + e.note : "")))),
+      section("Stored in", list((c.stores || []).map((s) => el("span", {}, el("strong", {}, s.role), " ", join(s.type, s.account), " ", s.path ? el("code", {}, s.path) : "", s.note ? " — " + s.note : "")))),
+      section("Used by", list((c.consumers || []).map((u) => el("span", {}, join(u.system, u.component), u.via ? el("span", {}, " via ", el("code", {}, u.via)) : "", u.note ? " — " + u.note : "")))),
+      section("Rotation and revocation", dl([["Policy", rot(c.rotation)], ["Procedure", c.rotation.procedure], ["Impact", c.rotation.impact], ["Revocation", c.revocation]])),
+      section("Record", dl([["Created", day(rec.created)], ["Rotated", day(rec.rotated)], ["Expires", day(rec.expires)],
+        ["Verified", day(rec.verified)], ["Revoked", day(rec.revoked)], ["Next date", day(r.assessment.next)]])),
+      section("History", list(r.history.map((e) => join(day(e.at), e.type, e.expires ? "expires " + day(e.expires) : "", e.by, e.note)))),
+      section("Links", list((c.links || []).map((l) => link(l.url, l.title)))),
+    );
+  };
+
+  const tbody = document.getElementById("rows");
+  function render() {
+    writeHash();
+    q.value = state.q;
+    for (const [k, sel] of Object.entries(selects)) sel.value = state.f[k] || "";
+    chips.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(state.f.state === b.dataset.state)));
+    head.querySelectorAll("th").forEach((th) => {
+      if (th.dataset.key === state.sort) th.setAttribute("aria-sort", state.dir > 0 ? "ascending" : "descending");
+      else th.removeAttribute("aria-sort");
+    });
+    const list = visible();
+    tbody.replaceChildren();
+    for (const r of list) {
+      const id = r.credential.id;
+      const tr = el("tr", { class: "item", tabindex: "0", "aria-expanded": String(state.open.has(id)) },
+        ...columns.map((c) => el("td", { class: c.hide ? "hide-sm" : "" }, c.cell ? c.cell(r) : c.val(r) || "–")));
+      const toggle = () => { state.open.has(id) ? state.open.delete(id) : state.open.add(id); render(); };
+      tr.addEventListener("click", toggle);
+      tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+      tbody.append(tr);
+      if (state.open.has(id)) tbody.append(el("tr", { class: "detail" }, el("td", { colspan: String(columns.length) }, detail(r))));
+    }
+    document.getElementById("empty").hidden = list.length > 0;
+    document.getElementById("shown").textContent = list.length + " of " + rows.length + " credentials";
+  }
+
+  document.getElementById("csv").addEventListener("click", () => {
+    const esc = (v) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const lines = [["id", "name", "system", "environment", "kind", "state", "reason", "next", "issuer", "primary store", "path", "owner", "rotation"].map(esc).join(",")];
+    for (const r of visible()) {
+      const c = r.credential, p = (c.stores || []).find((s) => s.role === "primary") || {};
+      lines.push([c.id, c.name, c.system, c.environment, c.kind, r.assessment.state, r.assessment.reason, day(r.assessment.next),
+        c.issuer.type, p.type, p.path, c.owner, rot(c.rotation)].map(esc).join(","));
+    }
+    const a = el("a", { href: URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" })), download: "credentials.csv" });
+    document.body.append(a); a.click(); a.remove();
+  });
+
+  window.addEventListener("hashchange", () => { readHash(); render(); });
+  readHash();
+  render();
+})();
+</script>
+</body>
+</html>

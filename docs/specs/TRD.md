@@ -203,7 +203,7 @@ records its date (a `meta` element, a comment, an `X-` property), which
 credspec validate
 credspec status   [--fail-on expired,overdue] [--progress to-create,to-deploy] [--manual] [filters]
 credspec report   --format html|markdown|plan|ics|json [-o file] [--as-of date]
-                        [--months 12] [--environment-order prod,staging] [--system-order a,b] [--remind-days n]
+                  [--months 12] [--environment-order prod,staging] [--system-order a,b] [--remind-days n]
 credspec record   <id-or-pattern> <created|rotated|expires|deployed|verified|revoked> [--at] [--expires] [--by] [--note]
 credspec export   [-o file]
 credspec schema   registry|events [-o file]

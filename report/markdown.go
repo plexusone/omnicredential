@@ -174,8 +174,8 @@ func details(m *md, r *omnicredential.Registry, c omnicredential.Credential) {
 // and account where they are made: a checklist for whoever sets them up.
 func byPlace(m *md, r *omnicredential.Registry) {
 	type place struct {
-		name, console string
-		creds         []omnicredential.Credential
+		name  string
+		creds []omnicredential.Credential
 	}
 	var places []place
 	for _, c := range r.Credentials {
@@ -188,9 +188,6 @@ func byPlace(m *md, r *omnicredential.Registry) {
 			places = append(places, place{name: name})
 			i = len(places) - 1
 		}
-		if places[i].console == "" {
-			places[i].console = c.Issuer.Console
-		}
 		places[i].creds = append(places[i].creds, c)
 	}
 	if len(places) == 0 {
@@ -202,16 +199,14 @@ func byPlace(m *md, r *omnicredential.Registry) {
 	m.line("Where each credential made by hand is created, grouped by issuer, with the store it goes to. Each one's details give the steps.")
 	m.blank()
 	for _, p := range places {
-		title := "### " + p.name
-		m.line(title)
+		m.line("### " + p.name)
 		m.blank()
-		if p.console != "" {
-			m.line("Console: " + p.console)
-			m.blank()
-		}
 		for _, c := range p.creds {
-			dest := storeSummary(c)
-			m.linef("- [%s](#%s) (%s) → %s", c.ID, anchor(c.ID), c.Status, dest)
+			where := strings.Join(nonEmpty(link("console", c.Issuer.Console)), "")
+			if where != "" {
+				where = " · " + where
+			}
+			m.linef("- [%s](#%s) (%s) → %s%s", c.ID, anchor(c.ID), c.Status, storeSummary(c), where)
 		}
 		m.blank()
 	}

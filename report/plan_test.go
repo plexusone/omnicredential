@@ -193,7 +193,7 @@ func TestProgressAndNextStep(t *testing.T) {
 		byID[row.Credential.ID] = row
 	}
 	if p := byID["b-app/prod/OK"]; p.Progress != omnicredential.ProgressToDeploy ||
-		p.NextStep != "Deploy to host-file /etc/b/env: the deploy tool writes it Then record it as deployed." {
+		p.NextStep != "Deploy to host-file /etc/b/env: the deploy tool writes it. Then record it as deployed." {
 		t.Errorf("OK: %s, %q", p.Progress, p.NextStep)
 	}
 	if p := byID["a-app/prod/OLD"]; p.Progress != omnicredential.ProgressDeployed || p.NextStep != "" {
@@ -233,6 +233,19 @@ func TestNextStepForAnExistingUnrecordedCredential(t *testing.T) {
 		t.Errorf("NextStep = %q", got)
 	}
 	if got := NextStep(c, omnicredential.ProgressDeployed); got != "" {
+		t.Errorf("NextStep = %q", got)
+	}
+}
+
+func TestNextStepNamesAPlaceOnce(t *testing.T) {
+	c := cred("x/prod/C", "x", omnicredential.PolicyOnDemand, 0)
+	c.Status = omnicredential.StatusPlanned
+	c.Generation = omnicredential.Generation{Method: omnicredential.MethodIssued, Where: "https://console.example.com", Steps: []string{"a"}}
+	c.Issuer.Console = "https://console.example.com"
+	c.Stores[0].Install = "put it here"
+	got := NextStep(c, omnicredential.ProgressToCreate)
+	want := "Create it in https://console.example.com following its steps. Install in aws-ssm /x/x/prod/C: put it here. Then record it as created."
+	if got != want {
 		t.Errorf("NextStep = %q", got)
 	}
 }

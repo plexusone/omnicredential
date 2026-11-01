@@ -177,7 +177,7 @@ func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
 		if c.Status == omnicredential.StatusActive {
 			parts = append(parts, "It exists but nothing is recorded: record it as created, with its date.")
 		}
-		where := strings.Join(nonEmpty(c.Generation.Where, c.Issuer.Console), ", ")
+		where := strings.Join(slices.Compact(nonEmpty(c.Generation.Where, c.Issuer.Console)), ", ")
 		create := "Create it"
 		if where != "" {
 			create += " in " + where
@@ -195,7 +195,7 @@ func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
 		}
 		for _, s := range c.Stores {
 			if s.Role != omnicredential.RoleRendered && s.Install != "" && c.Status != omnicredential.StatusActive {
-				parts = append(parts, "Install in "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+s.Install)
+				parts = append(parts, "Install in "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+sentence(s.Install))
 			}
 		}
 		if c.Status != omnicredential.StatusActive {
@@ -210,13 +210,22 @@ func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
 				if how == "" {
 					how = "deploy it there"
 				}
-				parts = append(parts, "Deploy to "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+how)
+				parts = append(parts, "Deploy to "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+sentence(how))
 			}
 		}
 		parts = append(parts, "Then record it as deployed.")
 		return strings.Join(parts, " ")
 	}
 	return ""
+}
+
+// sentence ends s with a full stop unless it ends with punctuation.
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || strings.ContainsAny(s[len(s)-1:], ".!?)") {
+		return s
+	}
+	return s + "."
 }
 
 func nonNil(s []string) []string {

@@ -61,3 +61,26 @@ func TestSchemaContent(t *testing.T) {
 		}
 	}
 }
+
+// TestNormalizeKeys covers the keys jsonschema builds on Windows, where
+// the walked directory keeps its backslash and its "..".
+func TestNormalizeKeys(t *testing.T) {
+	got := normalizeKeys(map[string]string{
+		ModulePath + `/schema/..\credspec.Credential`:     "windows",
+		ModulePath + "/credspec.Credential.id":            "unix",
+		ModulePath + `/schema/..\credspec\sub.Type.Field`: "nested",
+	})
+	want := map[string]string{
+		ModulePath + "/credspec.Credential":     "windows",
+		ModulePath + "/credspec.Credential.id":  "unix",
+		ModulePath + "/credspec/sub.Type.Field": "nested",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %q, want %q (got %v)", k, got[k], v, got)
+		}
+	}
+}

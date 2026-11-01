@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	oscfs "github.com/grokify/oscompat/fs"
 	"github.com/invopop/jsonschema"
 
 	"github.com/plexusone/systemspec-credential/credspec"
@@ -92,12 +93,26 @@ func reflector(root string) (*jsonschema.Reflector, error) {
 	}
 	// jsonschema keys comments by path.Join(base, directory walked), so
 	// a base that undoes the walk's relative root yields import paths.
-	base := path.Join(ModulePath, filepath.ToSlash(rel))
+	base := path.Join(ModulePath, oscfs.NormalizePath(rel))
 	r := &jsonschema.Reflector{Mapper: enums}
 	if err := r.AddGoComments(base, root); err != nil {
 		return nil, fmt.Errorf("schema: reading comments: %w", err)
 	}
+	r.CommentMap = normalizeKeys(r.CommentMap)
 	return r, nil
+}
+
+// normalizeKeys returns comments keyed by clean import paths.
+// jsonschema joins the base with each directory as the platform spells it,
+// so on Windows a key reads "<base>/..\credspec.Credential" and matches no
+// type; with forward slashes and ".." resolved it reads
+// "<module>/credspec.Credential" everywhere.
+func normalizeKeys(comments map[string]string) map[string]string {
+	out := make(map[string]string, len(comments))
+	for k, v := range comments {
+		out[oscfs.NormalizePath(k)] = v
+	}
+	return out
 }
 
 // enums maps the closed sets to string enums.

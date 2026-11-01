@@ -234,7 +234,7 @@ func (e *env) status() *cobra.Command {
 	c.Flags().StringVar(&states, "state", "", "comma-separated states to list (default: all but ok, planned and retired)")
 	c.Flags().BoolVar(&all, "all", false, "list every credential")
 	c.Flags().BoolVar(&manual, "manual", false, "only credentials with a step done by hand")
-	c.Flags().StringVar(&progress, "progress", "", "comma-separated work to list: to-create, to-deploy, deployed, retired")
+	c.Flags().StringVar(&progress, "progress", "", "comma-separated work to list: to-create, to-record, to-deploy, deployed, retired")
 	c.Flags().StringVar(&system, "system", "", "only this system")
 	c.Flags().StringVar(&environment, "env", "", "only this environment")
 	return c

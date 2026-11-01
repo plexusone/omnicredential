@@ -489,6 +489,8 @@ func TestProgress(t *testing.T) {
 	fed := secret("c")
 	fed.Generation = Generation{Method: MethodFederated}
 	fed.Stores = []Store{{Type: StoreNone, Role: RoleRendered}}
+	planned := secret("e")
+	planned.Status = StatusPlanned
 	retired := secret("d")
 	retired.Status = StatusRetired
 	at := func(s string) *time.Time { return ptr(date(s)) }
@@ -498,7 +500,8 @@ func TestProgress(t *testing.T) {
 		rec  Record
 		want Progress
 	}{
-		{"nothing recorded", c, Record{}, ProgressToCreate},
+		{"active, nothing recorded", c, Record{}, ProgressToRecord},
+		{"planned, nothing recorded", planned, Record{}, ProgressToCreate},
 		{"created, not deployed", c, Record{Created: at("2026-01-01")}, ProgressToDeploy},
 		{"deployed", c, Record{Created: at("2026-01-01"), Deployed: at("2026-01-02")}, ProgressDeployed},
 		{"rotated after deploy", c, Record{Created: at("2026-01-01"), Deployed: at("2026-01-02"), Rotated: at("2026-03-01")}, ProgressToDeploy},
@@ -513,7 +516,7 @@ func TestProgress(t *testing.T) {
 			t.Errorf("%s: %s, want %s", tc.name, got, tc.want)
 		}
 	}
-	if len(Progresses()) != 4 {
+	if len(Progresses()) != 5 {
 		t.Error("Progresses")
 	}
 }

@@ -172,11 +172,10 @@ func (rep Report) JSON(w io.Writer) error {
 // when nothing is to do.
 func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
 	switch p {
+	case omnicredential.ProgressToRecord:
+		return "It exists but nothing is recorded: record it as created, with the date it was made (--at)."
 	case omnicredential.ProgressToCreate:
 		var parts []string
-		if c.Status == omnicredential.StatusActive {
-			parts = append(parts, "It exists but nothing is recorded: record it as created, with its date.")
-		}
 		where := strings.Join(slices.Compact(nonEmpty(c.Generation.Where, c.Issuer.Console)), ", ")
 		create := "Create it"
 		if where != "" {
@@ -190,17 +189,13 @@ func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
 		if c.Generation.Method == omnicredential.MethodDerived {
 			create = "Build it from " + strings.Join(c.DependsOn, ", ")
 		}
-		if c.Status != omnicredential.StatusActive {
-			parts = append(parts, create+".")
-		}
+		parts = append(parts, create+".")
 		for _, s := range c.Stores {
-			if s.Role != omnicredential.RoleRendered && s.Install != "" && c.Status != omnicredential.StatusActive {
+			if s.Role != omnicredential.RoleRendered && s.Install != "" {
 				parts = append(parts, "Install in "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+sentence(s.Install))
 			}
 		}
-		if c.Status != omnicredential.StatusActive {
-			parts = append(parts, "Then record it as created.")
-		}
+		parts = append(parts, "Then record it as created.")
 		return strings.Join(parts, " ")
 	case omnicredential.ProgressToDeploy:
 		var parts []string

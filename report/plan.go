@@ -59,6 +59,7 @@ func (rep Report) Plan(w io.Writer, r *omnicredential.Registry, o PlanOptions) e
 
 	planSummary(m, rep)
 	planChecklist(m, rep, r, o)
+	planRecord(m, rep, o)
 	planDeploy(m, rep, o)
 	planCalendar(m, rep, o)
 	planAccounts(m, rep)
@@ -89,7 +90,8 @@ func planSummary(m *md, rep Report) {
 	}
 	m.linef("| Scheduled rotations by hand, per year | about %s |", strconv.FormatFloat(h.RotationsPerYear, 'f', -1, 64))
 	m.linef("| Rotated by hand at the issuer's expiry | %s |", credentials(h.ExpiringByHand))
-	m.linef("| To create / to deploy / deployed | %d / %d / %d |", rep.Work[omnicredential.ProgressToCreate], rep.Work[omnicredential.ProgressToDeploy], rep.Work[omnicredential.ProgressDeployed])
+	m.linef("| To create / to record / to deploy / deployed | %d / %d / %d / %d |", rep.Work[omnicredential.ProgressToCreate], rep.Work[omnicredential.ProgressToRecord],
+		rep.Work[omnicredential.ProgressToDeploy], rep.Work[omnicredential.ProgressDeployed])
 	m.blank()
 
 	type key struct{ system, env string }
@@ -202,9 +204,14 @@ func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions)
 	for _, g := range groups {
 		n += len(g.rows)
 	}
-	intro := fmt.Sprintf("To create by hand: %s with no created event: planned ones to make, and active ones that exist but are not recorded yet.", credentials(n))
+	intro := fmt.Sprintf("To create by hand: %s that do not exist yet.", credentials(n))
 	if auto > 0 {
 		intro += fmt.Sprintf(" Systems create %s more.", credentials(auto))
+	}
+	if n == 0 {
+		m.line(intro)
+		m.blank()
+		return
 	}
 	m.line(intro + " Accounts come first, then the credentials of no one environment, then each environment in turn; within a group, a credential follows those it is built from. Record each one once it exists, so its rotation dates start.")
 	m.blank()
@@ -282,6 +289,28 @@ func checklistItem(m *md, row Row, o PlanOptions) {
 		sub(label, dest+": "+how)
 	}
 	sub("Record", code(o.RecordCommand+" "+c.ID+" created"))
+}
+
+// planRecord lists the credentials that exist but have nothing recorded.
+func planRecord(m *md, rep Report, o PlanOptions) {
+	var rows []Row
+	for _, row := range rep.Rows {
+		if row.Progress == omnicredential.ProgressToRecord {
+			rows = append(rows, row)
+		}
+	}
+	if len(rows) == 0 {
+		return
+	}
+	slices.SortStableFunc(rows, func(a, b Row) int { return strings.Compare(a.Credential.ID, b.Credential.ID) })
+	m.line("## To Record")
+	m.blank()
+	m.linef("Already made, with nothing recorded: %s. Record when each was made, so its rotation dates start; a pattern records several at once.", credentials(len(rows)))
+	m.blank()
+	for _, row := range rows {
+		m.linef("- [ ] %s", code(o.RecordCommand+" "+row.Credential.ID+" created --at <date>"))
+	}
+	m.blank()
 }
 
 // planDeploy lists the credentials created but not deployed since they
@@ -420,6 +449,11 @@ func planExposure(m *md, rep Report, o PlanOptions) {
 	m.blank()
 	m.line("The credentials whose leak exposes the most, through everything they reach. Protect these first.")
 	m.blank()
+	if len(rows) == 0 || len(rows[0].Exposes) == 0 {
+		m.line("No credential reaches another.")
+		m.blank()
+		return
+	}
 	m.line("| Credential | Exposes | Exposed by | Protections |")
 	m.line("|---|---|---|---|")
 	for i, row := range rows {

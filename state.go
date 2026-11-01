@@ -105,8 +105,12 @@ type Progress string
 
 // Progress values.
 const (
-	// ProgressToCreate has no value yet: no created or rotated event.
+	// ProgressToCreate is planned and has no value yet: no created or
+	// rotated event.
 	ProgressToCreate Progress = "to-create"
+	// ProgressToRecord is active, so its value exists, but nothing is
+	// recorded about it: record when it was created.
+	ProgressToRecord Progress = "to-record"
 	// ProgressToDeploy has a value not yet deployed to its rendered
 	// stores: never deployed, or rotated since the last deploy.
 	ProgressToDeploy Progress = "to-deploy"
@@ -119,7 +123,7 @@ const (
 
 // Progresses lists every Progress in the order work goes.
 func Progresses() []Progress {
-	return []Progress{ProgressToCreate, ProgressToDeploy, ProgressDeployed, ProgressRetired}
+	return []Progress{ProgressToCreate, ProgressToRecord, ProgressToDeploy, ProgressDeployed, ProgressRetired}
 }
 
 // ProgressOf gives where the work on a credential stands from its record.
@@ -134,6 +138,9 @@ func ProgressOf(c Credential, rec Record) Progress {
 		changed = rec.Deployed
 	}
 	if changed == nil {
+		if c.Status == StatusActive && c.Generation.Method != MethodFederated {
+			return ProgressToRecord
+		}
 		return ProgressToCreate
 	}
 	rendered := false

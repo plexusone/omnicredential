@@ -109,7 +109,8 @@ credential stands:
 
 | Progress | When |
 |---|---|
-| `to-create` | No `created` or `rotated` event (a federated one: no `deployed` event) |
+| `to-create` | Not active (planned) and no `created` or `rotated` event; a federated one: no `deployed` event |
+| `to-record` | Active, so it exists, but no `created` or `rotated` event |
 | `to-deploy` | It has a `rendered` store, and no `deployed` event since it last changed |
 | `deployed` | Created, and deployed since, or with no `rendered` store |
 | `retired` | Status `retired`, or a `revoked` event |

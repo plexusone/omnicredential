@@ -136,7 +136,8 @@ func TestReports(t *testing.T) {
 		if !bytes.Contains(data, []byte("Team")) || f != "ics" && !bytes.Contains(data, []byte("key-a")) {
 			t.Errorf("%s report:\n%s", f, data)
 		}
-		if f == "plan" && !bytes.Contains(data, []byte("`credentials record key-a created`")) {
+		if f == "plan" && (!bytes.Contains(data, []byte("`credentials record key-a created --at <date>`")) ||
+			!bytes.Contains(data, []byte("## To Record\n\nAlready made, with nothing recorded: 2 credentials."))) {
 			t.Errorf("the plan does not name the mounted record command:\n%s", data)
 		}
 	}

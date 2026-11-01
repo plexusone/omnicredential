@@ -42,10 +42,11 @@ credential stands.
 - **Instructions for people.** Each store says how the value is installed
   there and where its console is; accounts record their protections and
   recovery; the reference lists what to create by hand, grouped by place.
-- **What to work on.** Each credential is `to-create`, `to-deploy` or
-  `deployed`, from `created`, `rotated` and `deployed` events, with its
+- **What to work on.** Each credential is `to-create`, `to-record` (it
+  exists, but nothing is recorded), `to-deploy` or `deployed`, from `created`, `rotated` and `deployed` events, with its
   next step: where to create it and how to install it, or how it is
-  deployed. The HTML report opens sorted by it.
+  deployed. The HTML report opens sorted by it, and one chip shows only
+  what you create by hand.
 - **Lifecycle state.** Each credential is `ok`, `due`, `overdue`,
   `expiring`, `expired`, `unknown-expiry`, `unrecorded`, `planned` or
   `retired`, from its rotation policy and its events.

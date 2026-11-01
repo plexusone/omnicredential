@@ -82,7 +82,7 @@ func TestPlan(t *testing.T) {
 		"| Scheduled rotations by hand, per year | about 13.2 |",
 		"| Rotated by hand at the issuer's expiry | 1 credential |",
 		"| a-app | staging | 2 | 0 | 2 | 2 |",
-		"To create by hand: 3 credentials with no created event: planned ones to make, and active ones that exist but are not recorded yet. Systems create 1 credential more.",
+		"To create by hand: 3 credentials that do not exist yet. Systems create 1 credential more.",
 		"### 1. Accounts\n\n- [ ] **org/owner** (account, planned)",
 		"### 2. a-app · staging",
 		"    - Command: `openssl rand -hex 32`",
@@ -95,7 +95,7 @@ func TestPlan(t *testing.T) {
 		`| 2026-08-15 | a-app/ci/TOKEN | expires | human | CI stops, \| until replaced |`,
 		"- [ ] **owner** (org/owner)\n    - MFA\n    - Recovery: Recovery codes.",
 		"| org/owner | 1 | 0 | MFA |",
-		"| To create / to deploy / deployed | 4 / 0 / 4 |",
+		"| To create / to record / to deploy / deployed | 4 / 0 / 0 / 4 |",
 		"## To Deploy\n\nNothing is waiting to be deployed.",
 		"| a-app/prod/ROOT | Only from the backup copy. | password-manager root copy |",
 	} {
@@ -229,7 +229,7 @@ func TestProgressAndNextStep(t *testing.T) {
 
 func TestNextStepForAnExistingUnrecordedCredential(t *testing.T) {
 	c := cred("x/prod/K", "x", omnicredential.PolicyOnDemand, 0)
-	if got := NextStep(c, omnicredential.ProgressToCreate); got != "It exists but nothing is recorded: record it as created, with its date." {
+	if got := NextStep(c, omnicredential.ProgressToRecord); got != "It exists but nothing is recorded: record it as created, with the date it was made (--at)." {
 		t.Errorf("NextStep = %q", got)
 	}
 	if got := NextStep(c, omnicredential.ProgressDeployed); got != "" {

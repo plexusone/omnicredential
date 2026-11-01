@@ -1,4 +1,4 @@
-module github.com/plexusone/omnicredential
+module github.com/plexusone/systemspec-credential
 
 go 1.26.0
 

@@ -1,4 +1,4 @@
-# OmniCredential: Roadmap
+# systemspec-credential: Roadmap
 
 ## Phase 1: Registry
 

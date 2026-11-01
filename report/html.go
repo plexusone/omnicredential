@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 //go:embed report.html
@@ -22,12 +22,12 @@ var pageTemplate = template.Must(template.New("report").Parse(page))
 // with text nodes only.
 func (rep Report) HTML(w io.Writer) error {
 	type stage struct {
-		Name  omnicredential.Stage
+		Name  credspec.Stage
 		Human int
 	}
 	var stages []stage
-	for _, st := range omnicredential.Stages() {
-		stages = append(stages, stage{st, rep.Handling.ByStage[st][omnicredential.ActorHuman]})
+	for _, st := range credspec.Stages() {
+		stages = append(stages, stage{st, rep.Handling.ByStage[st][credspec.ActorHuman]})
 	}
 	return pageTemplate.Execute(w, struct {
 		Title    string
@@ -37,7 +37,7 @@ func (rep Report) HTML(w io.Writer) error {
 		Handling HandlingSummary
 		Stages   []stage
 		Rows     []Row
-		Urgency  []omnicredential.State
+		Urgency  []credspec.State
 	}{
 		Title:    rep.Title,
 		AsOf:     rep.AsOf.Format(time.DateOnly),
@@ -53,7 +53,7 @@ func (rep Report) HTML(w io.Writer) error {
 // asOfPattern finds the assessment date each time-dependent report
 // records: the HTML page's meta element, the plan's comment and the
 // calendar's property.
-var asOfPattern = regexp.MustCompile(`(?:<meta name="omnicredential-as-of" content="|<!-- omnicredential-as-of: |X-OMNICREDENTIAL-AS-OF:)(\d{4}-\d{2}-\d{2})`)
+var asOfPattern = regexp.MustCompile(`(?:<meta name="credspec-as-of" content="|<!-- credspec-as-of: |X-CREDSPEC-AS-OF:)(\d{4}-\d{2}-\d{2})`)
 
 // AsOf returns the date a report written by HTML, Plan or Calendar was
 // assessed at. Building the report again at that date and comparing tells
@@ -61,7 +61,7 @@ var asOfPattern = regexp.MustCompile(`(?:<meta name="omnicredential-as-of" conte
 func AsOf(page []byte) (time.Time, error) {
 	m := asOfPattern.FindSubmatch(page)
 	if m == nil {
-		return time.Time{}, errors.New("report: no omnicredential as-of date in the file")
+		return time.Time{}, errors.New("report: no credspec as-of date in the file")
 	}
 	return time.Parse(time.DateOnly, string(m[1]))
 }

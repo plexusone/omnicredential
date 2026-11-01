@@ -8,7 +8,7 @@ import (
 
 	oscfs "github.com/grokify/oscompat/fs"
 
-	"github.com/plexusone/omnicredential/schema"
+	"github.com/plexusone/systemspec-credential/schema"
 )
 
 func main() {

@@ -7,50 +7,50 @@ import (
 	"testing"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 // planFixture adds a token with an expiry, an account and a credential
 // built from another to the base fixture.
-func planFixture(t *testing.T) (*omnicredential.Registry, Report) {
+func planFixture(t *testing.T) (*credspec.Registry, Report) {
 	t.Helper()
 	r, l, now := fixture(t)
-	tok := cred("a-app/ci/TOKEN", "a-app", omnicredential.PolicyOnExpiry, 0)
+	tok := cred("a-app/ci/TOKEN", "a-app", credspec.PolicyOnExpiry, 0)
 	tok.Environment = ""
 	tok.Rotation.Impact = "CI stops, | until replaced"
-	pw := cred("a-app/staging/PW", "a-app", omnicredential.PolicyOnDemand, 0)
-	pw.Status = omnicredential.StatusPlanned
+	pw := cred("a-app/staging/PW", "a-app", credspec.PolicyOnDemand, 0)
+	pw.Status = credspec.StatusPlanned
 	pw.Environment = "staging"
-	dsn := cred("a-app/staging/DSN", "a-app", omnicredential.PolicyOnDemand, 0)
-	dsn.Status = omnicredential.StatusPlanned
+	dsn := cred("a-app/staging/DSN", "a-app", credspec.PolicyOnDemand, 0)
+	dsn.Status = credspec.StatusPlanned
 	dsn.Environment = "staging"
-	dsn.Generation = omnicredential.Generation{Method: omnicredential.MethodDerived}
+	dsn.Generation = credspec.Generation{Method: credspec.MethodDerived}
 	dsn.DependsOn = []string{pw.ID}
-	acct := cred("org/owner", "org", omnicredential.PolicyOnDemand, 0)
-	acct.Kind = omnicredential.KindAccount
+	acct := cred("org/owner", "org", credspec.PolicyOnDemand, 0)
+	acct.Kind = credspec.KindAccount
 	acct.Environment = ""
-	acct.Status = omnicredential.StatusPlanned
+	acct.Status = credspec.StatusPlanned
 	acct.Protections = []string{"MFA"}
 	acct.Recovery = "Recovery codes."
 	acct.Reaches = []string{tok.ID}
-	keep := cred("a-app/prod/ROOT", "a-app", omnicredential.PolicyOnDemand, 0)
+	keep := cred("a-app/prod/ROOT", "a-app", credspec.PolicyOnDemand, 0)
 	keep.Recovery = "Only from the backup copy."
-	keep.Stores = append(keep.Stores, omnicredential.Store{Type: omnicredential.StorePasswordManager, Role: omnicredential.RoleBackup, Path: "root copy"})
+	keep.Stores = append(keep.Stores, credspec.Store{Type: credspec.StorePasswordManager, Role: credspec.RoleBackup, Path: "root copy"})
 	// The dependent comes before its dependency in the registry.
 	r.Add(tok, dsn, pw, acct, keep)
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}
 	exp := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
-	for _, e := range []omnicredential.Event{
-		{Credential: tok.ID, Type: omnicredential.EventCreated, At: time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC), Expires: &exp},
-		{Credential: keep.ID, Type: omnicredential.EventCreated, At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+	for _, e := range []credspec.Event{
+		{Credential: tok.ID, Type: credspec.EventCreated, At: time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC), Expires: &exp},
+		{Credential: keep.ID, Type: credspec.EventCreated, At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 	} {
 		if err := l.Append(r, e); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return r, Build("Team", r, l, now, omnicredential.DefaultWarn)
+	return r, Build("Team", r, l, now, credspec.DefaultWarn)
 }
 
 func TestSchedule(t *testing.T) {
@@ -77,7 +77,7 @@ func TestPlan(t *testing.T) {
 	}
 	out := b.String()
 	for _, want := range []string{
-		"<!-- omnicredential-as-of: 2026-06-01 -->\n# Team: Management Plan",
+		"<!-- credspec-as-of: 2026-06-01 -->\n# Team: Management Plan",
 		"| Credentials | 8 |",
 		"| Scheduled rotations by hand, per year | about 13.2 |",
 		"| Rotated by hand at the issuer's expiry | 1 credential |",
@@ -129,7 +129,7 @@ func TestCalendar(t *testing.T) {
 	out := b.String()
 	for _, want := range []string{
 		"BEGIN:VCALENDAR\r\nVERSION:2.0\r\n",
-		"X-OMNICREDENTIAL-AS-OF:2026-06-01\r\n",
+		"X-CREDSPEC-AS-OF:2026-06-01\r\n",
 		// The late rotation goes on the report's date, without a reminder.
 		"DTSTART;VALUE=DATE:20260601\r\n",
 		"SUMMARY:Late: Rotate OLD (due 2026-01-31) (a-app prod)\r\n",
@@ -185,25 +185,25 @@ func bufioWriter(b *bytes.Buffer) *bufio.Writer { return bufio.NewWriter(b) }
 func TestProgressAndNextStep(t *testing.T) {
 	r, l, now := fixture(t)
 	c, _ := r.Find("b-app/prod/OK")
-	c.Stores = append(c.Stores, omnicredential.Store{Type: omnicredential.StoreHostFile, Role: omnicredential.RoleRendered, Path: "/etc/b/env", Install: "the deploy tool writes it"})
+	c.Stores = append(c.Stores, credspec.Store{Type: credspec.StoreHostFile, Role: credspec.RoleRendered, Path: "/etc/b/env", Install: "the deploy tool writes it"})
 	r.Credentials[0] = c
-	rep := Build("Team", r, l, now, omnicredential.DefaultWarn)
+	rep := Build("Team", r, l, now, credspec.DefaultWarn)
 	byID := map[string]Row{}
 	for _, row := range rep.Rows {
 		byID[row.Credential.ID] = row
 	}
-	if p := byID["b-app/prod/OK"]; p.Progress != omnicredential.ProgressToDeploy ||
+	if p := byID["b-app/prod/OK"]; p.Progress != credspec.ProgressToDeploy ||
 		p.NextStep != "Deploy to host-file /etc/b/env: the deploy tool writes it. Then record it as deployed." {
 		t.Errorf("OK: %s, %q", p.Progress, p.NextStep)
 	}
-	if p := byID["a-app/prod/OLD"]; p.Progress != omnicredential.ProgressDeployed || p.NextStep != "" {
+	if p := byID["a-app/prod/OLD"]; p.Progress != credspec.ProgressDeployed || p.NextStep != "" {
 		t.Errorf("OLD: %s, %q", p.Progress, p.NextStep)
 	}
-	if p := byID["a-app/staging/NEW"]; p.Progress != omnicredential.ProgressToCreate ||
+	if p := byID["a-app/staging/NEW"]; p.Progress != credspec.ProgressToCreate ||
 		!strings.HasPrefix(p.NextStep, "Create it with: openssl rand -hex 32. ") || !strings.HasSuffix(p.NextStep, "Then record it as created.") {
 		t.Errorf("NEW: %s, %q", p.Progress, p.NextStep)
 	}
-	if rep.Work[omnicredential.ProgressToDeploy] != 1 || rep.Work[omnicredential.ProgressToCreate] != 1 {
+	if rep.Work[credspec.ProgressToDeploy] != 1 || rep.Work[credspec.ProgressToCreate] != 1 {
 		t.Errorf("work = %v", rep.Work)
 	}
 	var b bytes.Buffer
@@ -228,22 +228,22 @@ func TestProgressAndNextStep(t *testing.T) {
 }
 
 func TestNextStepForAnExistingUnrecordedCredential(t *testing.T) {
-	c := cred("x/prod/K", "x", omnicredential.PolicyOnDemand, 0)
-	if got := NextStep(c, omnicredential.ProgressToRecord); got != "It exists but nothing is recorded: record it as created, with the date it was made (--at)." {
+	c := cred("x/prod/K", "x", credspec.PolicyOnDemand, 0)
+	if got := NextStep(c, credspec.ProgressToRecord); got != "It exists but nothing is recorded: record it as created, with the date it was made (--at)." {
 		t.Errorf("NextStep = %q", got)
 	}
-	if got := NextStep(c, omnicredential.ProgressDeployed); got != "" {
+	if got := NextStep(c, credspec.ProgressDeployed); got != "" {
 		t.Errorf("NextStep = %q", got)
 	}
 }
 
 func TestNextStepNamesAPlaceOnce(t *testing.T) {
-	c := cred("x/prod/C", "x", omnicredential.PolicyOnDemand, 0)
-	c.Status = omnicredential.StatusPlanned
-	c.Generation = omnicredential.Generation{Method: omnicredential.MethodIssued, Where: "https://console.example.com", Steps: []string{"a"}}
+	c := cred("x/prod/C", "x", credspec.PolicyOnDemand, 0)
+	c.Status = credspec.StatusPlanned
+	c.Generation = credspec.Generation{Method: credspec.MethodIssued, Where: "https://console.example.com", Steps: []string{"a"}}
 	c.Issuer.Console = "https://console.example.com"
 	c.Stores[0].Install = "put it here"
-	got := NextStep(c, omnicredential.ProgressToCreate)
+	got := NextStep(c, credspec.ProgressToCreate)
 	want := "Create it in https://console.example.com following its steps. Install in aws-ssm /x/x/prod/C: put it here. Then record it as created."
 	if got != want {
 		t.Errorf("NextStep = %q", got)

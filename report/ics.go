@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 // CalendarOptions shape the calendar.
@@ -20,7 +20,7 @@ type CalendarOptions struct {
 	// report's warning window when zero, and no reminder when negative.
 	RemindDays int
 	// RecordCommand is the command that records an event, such as
-	// "omnicredential record"; each event's description gives the full
+	// "credspec record"; each event's description gives the full
 	// command to run once it is done.
 	RecordCommand string
 }
@@ -38,7 +38,7 @@ func (rep Report) Calendar(w io.Writer, o CalendarOptions) error {
 		o.RemindDays = rep.WarnDays
 	}
 	if o.RecordCommand == "" {
-		o.RecordCommand = "omnicredential record"
+		o.RecordCommand = "credspec record"
 	}
 	bw := bufio.NewWriter(w)
 	c := &ics{w: bw}
@@ -46,10 +46,10 @@ func (rep Report) Calendar(w io.Writer, o CalendarOptions) error {
 
 	c.prop("BEGIN", "VCALENDAR")
 	c.prop("VERSION", "2.0")
-	c.prop("PRODID", "-//plexusone//omnicredential//EN")
+	c.prop("PRODID", "-//plexusone//systemspec-credential//EN")
 	c.prop("CALSCALE", "GREGORIAN")
 	c.prop("X-WR-CALNAME", text(rep.Title))
-	c.prop("X-OMNICREDENTIAL-AS-OF", rep.AsOf.Format(time.DateOnly))
+	c.prop("X-CREDSPEC-AS-OF", rep.AsOf.Format(time.DateOnly))
 	for _, x := range rep.Schedule(rep.AsOf.AddDate(0, o.Months, 0)) {
 		cr := x.Row.Credential
 		day := x.Date
@@ -58,7 +58,7 @@ func (rep Report) Calendar(w io.Writer, o CalendarOptions) error {
 		}
 		sum := sha256.Sum256([]byte(cr.ID + "|" + string(x.Due) + "|" + x.Date.Format(time.DateOnly)))
 		what := "Rotate " + cr.Name
-		event := omnicredential.EventRotated
+		event := credspec.EventRotated
 		if x.Due == DueExpires {
 			what = cr.Name + " expires"
 		}
@@ -82,7 +82,7 @@ func (rep Report) Calendar(w io.Writer, o CalendarOptions) error {
 		desc = append(desc, fmt.Sprintf("Then: %s %s %s", o.RecordCommand, cr.ID, event))
 
 		c.prop("BEGIN", "VEVENT")
-		c.prop("UID", hex.EncodeToString(sum[:8])+"@omnicredential")
+		c.prop("UID", hex.EncodeToString(sum[:8])+"@systemspec-credential")
 		c.prop("DTSTAMP", stamp)
 		c.prop("DTSTART;VALUE=DATE", day.Format("20060102"))
 		c.prop("DTEND;VALUE=DATE", day.AddDate(0, 0, 1).Format("20060102"))

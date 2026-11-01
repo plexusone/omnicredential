@@ -1,4 +1,4 @@
-# OmniCredential
+# systemspec-credential
 
 [![Go CI][go-ci-svg]][go-ci-url]
 [![Go Lint][go-lint-svg]][go-lint-url]
@@ -6,22 +6,22 @@
 [![Docs][docs-godoc-svg]][docs-godoc-url]
 [![License][license-svg]][license-url]
 
- [go-ci-svg]: https://github.com/plexusone/omnicredential/actions/workflows/go-ci.yaml/badge.svg?branch=main
- [go-ci-url]: https://github.com/plexusone/omnicredential/actions/workflows/go-ci.yaml
- [go-lint-svg]: https://github.com/plexusone/omnicredential/actions/workflows/go-lint.yaml/badge.svg?branch=main
- [go-lint-url]: https://github.com/plexusone/omnicredential/actions/workflows/go-lint.yaml
- [go-sast-svg]: https://github.com/plexusone/omnicredential/actions/workflows/go-sast-codeql.yaml/badge.svg?branch=main
- [go-sast-url]: https://github.com/plexusone/omnicredential/actions/workflows/go-sast-codeql.yaml
- [docs-godoc-svg]: https://pkg.go.dev/badge/github.com/plexusone/omnicredential
- [docs-godoc-url]: https://pkg.go.dev/github.com/plexusone/omnicredential
+ [go-ci-svg]: https://github.com/plexusone/systemspec-credential/actions/workflows/go-ci.yaml/badge.svg?branch=main
+ [go-ci-url]: https://github.com/plexusone/systemspec-credential/actions/workflows/go-ci.yaml
+ [go-lint-svg]: https://github.com/plexusone/systemspec-credential/actions/workflows/go-lint.yaml/badge.svg?branch=main
+ [go-lint-url]: https://github.com/plexusone/systemspec-credential/actions/workflows/go-lint.yaml
+ [go-sast-svg]: https://github.com/plexusone/systemspec-credential/actions/workflows/go-sast-codeql.yaml/badge.svg?branch=main
+ [go-sast-url]: https://github.com/plexusone/systemspec-credential/actions/workflows/go-sast-codeql.yaml
+ [docs-godoc-svg]: https://pkg.go.dev/badge/github.com/plexusone/systemspec-credential
+ [docs-godoc-url]: https://pkg.go.dev/github.com/plexusone/systemspec-credential
  [license-svg]: https://img.shields.io/badge/license-MIT-blue.svg
- [license-url]: https://github.com/plexusone/omnicredential/blob/main/LICENSE
+ [license-url]: https://github.com/plexusone/systemspec-credential/blob/main/LICENSE
 
 A registry of credentials **without their values**: what each one is for,
 where and how it is generated, what it is entitled to do, where it is
 stored, who uses it, who owns it, and how it rotates. An event log records
 when each was created, rotated, verified, given an expiry or revoked, and
-OmniCredential turns both into a lifecycle state, reports and a gate for
+systemspec-credential turns both into a lifecycle state, reports and a gate for
 deploy scripts.
 
 It is both a management tool and documentation: the registry says what
@@ -71,16 +71,16 @@ credential stands.
 ## Install
 
 ```bash
-go install github.com/plexusone/omnicredential/cmd/omnicredential@latest
+go install github.com/plexusone/systemspec-credential/cmd/credspec@latest
 ```
 
 ## Use
 
 ```bash
-omnicredential validate --registry credentials.json --events events.json
-omnicredential status   --registry credentials.json --events events.json
-omnicredential record   example-app/prod/SESSION_KEY rotated --by ops --registry credentials.json --events events.json
-omnicredential report   --format html -o credentials.html --registry credentials.json --events events.json
+credspec validate --registry credentials.json --events events.json
+credspec status   --registry credentials.json --events events.json
+credspec record   example-app/prod/SESSION_KEY rotated --by ops --registry credentials.json --events events.json
+credspec report   --format html -o credentials.html --registry credentials.json --events events.json
 ```
 
 | Command | What it does |
@@ -97,21 +97,21 @@ See [`examples/basic`](examples/basic) for a registry and an event log.
 ## In Go
 
 ```go
-reg := omnicredential.NewRegistry()
+reg := credspec.NewRegistry()
 for _, env := range []string{"staging", "prod"} {
-	reg.Add(omnicredential.Credential{
+	reg.Add(credspec.Credential{
 		ID:          "example-app/" + env + "/SESSION_KEY",
 		Name:        "SESSION_KEY",
 		System:      "example-app",
 		Environment: env,
-		Kind:        omnicredential.KindRandomSecret,
-		Status:      omnicredential.StatusActive,
+		Kind:        credspec.KindRandomSecret,
+		Status:      credspec.StatusActive,
 		Owner:       "platform team",
-		Issuer:      omnicredential.Issuer{Type: omnicredential.IssuerSelf},
-		Generation:  omnicredential.Generation{Method: omnicredential.MethodRandom, Command: "openssl rand -hex 32"},
-		Stores:      []omnicredential.Store{{Type: omnicredential.StoreAWSSSM, Role: omnicredential.RolePrimary, Path: "/example/" + env + "/SESSION_KEY"}},
-		Rotation:    omnicredential.Rotation{Policy: omnicredential.PolicyScheduled, IntervalDays: 180},
-		Handling:    omnicredential.Handling{Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem, Rotate: omnicredential.ActorHuman},
+		Issuer:      credspec.Issuer{Type: credspec.IssuerSelf},
+		Generation:  credspec.Generation{Method: credspec.MethodRandom, Command: "openssl rand -hex 32"},
+		Stores:      []credspec.Store{{Type: credspec.StoreAWSSSM, Role: credspec.RolePrimary, Path: "/example/" + env + "/SESSION_KEY"}},
+		Rotation:    credspec.Rotation{Policy: credspec.PolicyScheduled, IntervalDays: 180},
+		Handling:    credspec.Handling{Generate: credspec.ActorHuman, Distribute: credspec.ActorSystem, Rotate: credspec.ActorHuman},
 	})
 }
 ```
@@ -121,7 +121,7 @@ Mount the commands in your own tool, over that registry:
 ```go
 root.AddCommand(cli.New(cli.Options{
 	Use:        "credentials",
-	Registry:   func() (*omnicredential.Registry, error) { return reg, nil },
+	Registry:   func() (*credspec.Registry, error) { return reg, nil },
 	EventsPath: "credentials/events.json",
 }))
 ```
@@ -130,11 +130,11 @@ root.AddCommand(cli.New(cli.Options{
 
 | Package | Purpose |
 |---|---|
-| `omnicredential` | Types, validation, event log, state (standard library only) |
+| `credspec` | Types, validation, event log, state (standard library only) |
 | `report` | HTML, Markdown and JSON reports (standard library only) |
 | `schema` | JSON Schemas generated from the types |
 | `cli` | The commands as a mountable Cobra command |
-| `cmd/omnicredential` | The standalone command |
+| `cmd/credspec` | The standalone command |
 
 ## Keep Reports Private
 

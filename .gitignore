@@ -4,5 +4,5 @@
 .envrc
 coverage.txt
 *.test
-/omnicredential
+/credspec
 site/

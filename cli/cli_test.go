@@ -8,31 +8,31 @@ import (
 	"testing"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 var now = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 
-func registry() *omnicredential.Registry {
-	c := func(id string, days int) omnicredential.Credential {
-		return omnicredential.Credential{
-			ID: id, Name: id, System: "example-app", Environment: "prod", Kind: omnicredential.KindRandomSecret,
-			Status: omnicredential.StatusActive, Owner: "ops", Issuer: omnicredential.Issuer{Type: omnicredential.IssuerSelf},
-			Generation: omnicredential.Generation{Method: omnicredential.MethodRandom},
-			Stores:     []omnicredential.Store{{Type: omnicredential.StoreAWSSSM, Role: omnicredential.RolePrimary, Path: "/p/" + id}},
-			Rotation:   omnicredential.Rotation{Policy: omnicredential.PolicyScheduled, IntervalDays: days},
-			Handling: omnicredential.Handling{Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem,
-				Rotate: omnicredential.ActorHuman},
+func registry() *credspec.Registry {
+	c := func(id string, days int) credspec.Credential {
+		return credspec.Credential{
+			ID: id, Name: id, System: "example-app", Environment: "prod", Kind: credspec.KindRandomSecret,
+			Status: credspec.StatusActive, Owner: "ops", Issuer: credspec.Issuer{Type: credspec.IssuerSelf},
+			Generation: credspec.Generation{Method: credspec.MethodRandom},
+			Stores:     []credspec.Store{{Type: credspec.StoreAWSSSM, Role: credspec.RolePrimary, Path: "/p/" + id}},
+			Rotation:   credspec.Rotation{Policy: credspec.PolicyScheduled, IntervalDays: days},
+			Handling: credspec.Handling{Generate: credspec.ActorHuman, Distribute: credspec.ActorSystem,
+				Rotate: credspec.ActorHuman},
 		}
 	}
-	return omnicredential.NewRegistry(c("key-a", 30), c("key-b", 365))
+	return credspec.NewRegistry(c("key-a", 30), c("key-b", 365))
 }
 
 // run executes the command with a Go-built registry and an events file in
 // a temporary directory.
 func run(t *testing.T, events string, args ...string) (string, error) {
 	t.Helper()
-	cmd := New(Options{Use: "credentials", Registry: func() (*omnicredential.Registry, error) { return registry(), nil },
+	cmd := New(Options{Use: "credentials", Registry: func() (*credspec.Registry, error) { return registry(), nil },
 		EventsPath: events, Now: func() time.Time { return now }})
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -112,7 +112,7 @@ func TestLifecycle(t *testing.T) {
 		t.Error("an unknown progress was accepted")
 	}
 
-	l, err := omnicredential.LoadLog(events, registry())
+	l, err := credspec.LoadLog(events, registry())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestReports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := omnicredential.ReadRegistry([]byte(out)); err != nil {
+	if _, err := credspec.ReadRegistry([]byte(out)); err != nil {
 		t.Errorf("export is not a valid registry: %v", err)
 	}
 	for _, s := range []string{"registry", "events"} {
@@ -184,8 +184,8 @@ func TestStandaloneReadsRegistryFile(t *testing.T) {
 }
 
 func TestBadRegistryFromGo(t *testing.T) {
-	cmd := New(Options{Registry: func() (*omnicredential.Registry, error) {
-		return omnicredential.NewRegistry(omnicredential.Credential{ID: "x"}), nil
+	cmd := New(Options{Registry: func() (*credspec.Registry, error) {
+		return credspec.NewRegistry(credspec.Credential{ID: "x"}), nil
 	}})
 	var out bytes.Buffer
 	cmd.SetOut(&out)

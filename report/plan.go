@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 // PlanOptions shape the management plan.
@@ -25,7 +25,7 @@ type PlanOptions struct {
 	// as shared infrastructure first; others follow by name.
 	SystemOrder []string
 	// RecordCommand is the command that records an event, such as
-	// "omnicredential record"; the plan appends the ID and the event.
+	// "credspec record"; the plan appends the ID and the event.
 	RecordCommand string
 	// TopExposure is how many credentials the exposure table lists; 10
 	// when zero.
@@ -37,7 +37,7 @@ type PlanOptions struct {
 // accounts' protections and the credentials whose leak exposes the most.
 // It depends on the report's time, which it records in a comment so a
 // committed copy can be rebuilt and compared.
-func (rep Report) Plan(w io.Writer, r *omnicredential.Registry, o PlanOptions) error {
+func (rep Report) Plan(w io.Writer, r *credspec.Registry, o PlanOptions) error {
 	if o.Months <= 0 {
 		o.Months = 12
 	}
@@ -45,13 +45,13 @@ func (rep Report) Plan(w io.Writer, r *omnicredential.Registry, o PlanOptions) e
 		o.TopExposure = 10
 	}
 	if o.RecordCommand == "" {
-		o.RecordCommand = "omnicredential record"
+		o.RecordCommand = "credspec record"
 	}
 	bw := bufio.NewWriter(w)
 	m := &md{w: bw}
 	asOf := rep.AsOf.Format(time.DateOnly)
 
-	m.line("<!-- omnicredential-as-of: " + asOf + " -->")
+	m.line("<!-- credspec-as-of: " + asOf + " -->")
 	m.line("# " + rep.Title + ": Management Plan")
 	m.blank()
 	m.linef("As of %s. What exists, what you do by hand, and when each credential comes due. Generated from the registry and its event log; do not edit.", asOf)
@@ -72,7 +72,7 @@ func (rep Report) Plan(w io.Writer, r *omnicredential.Registry, o PlanOptions) e
 }
 
 func planSummary(m *md, rep Report) {
-	status := map[omnicredential.Status]int{}
+	status := map[credspec.Status]int{}
 	for _, row := range rep.Rows {
 		status[row.Credential.Status]++
 	}
@@ -82,16 +82,16 @@ func planSummary(m *md, rep Report) {
 	m.line("| | |")
 	m.line("|---|---|")
 	m.linef("| Credentials | %d |", len(rep.Rows))
-	m.linef("| Active / planned / retired | %d / %d / %d |", status[omnicredential.StatusActive], status[omnicredential.StatusPlanned], status[omnicredential.StatusRetired])
+	m.linef("| Active / planned / retired | %d / %d / %d |", status[credspec.StatusActive], status[credspec.StatusPlanned], status[credspec.StatusRetired])
 	m.linef("| Need a person for at least one step | %d |", h.Manual)
 	m.linef("| Handled entirely by systems | %d |", h.Automatic)
-	for _, st := range omnicredential.Stages() {
-		m.linef("| %s by hand / by a system | %d / %d |", capital(string(st)), h.ByStage[st][omnicredential.ActorHuman], h.ByStage[st][omnicredential.ActorSystem])
+	for _, st := range credspec.Stages() {
+		m.linef("| %s by hand / by a system | %d / %d |", capital(string(st)), h.ByStage[st][credspec.ActorHuman], h.ByStage[st][credspec.ActorSystem])
 	}
 	m.linef("| Scheduled rotations by hand, per year | about %s |", strconv.FormatFloat(h.RotationsPerYear, 'f', -1, 64))
 	m.linef("| Rotated by hand at the issuer's expiry | %s |", credentials(h.ExpiringByHand))
-	m.linef("| To create / to record / to deploy / deployed | %d / %d / %d / %d |", rep.Work[omnicredential.ProgressToCreate], rep.Work[omnicredential.ProgressToRecord],
-		rep.Work[omnicredential.ProgressToDeploy], rep.Work[omnicredential.ProgressDeployed])
+	m.linef("| To create / to record / to deploy / deployed | %d / %d / %d / %d |", rep.Work[credspec.ProgressToCreate], rep.Work[credspec.ProgressToRecord],
+		rep.Work[credspec.ProgressToDeploy], rep.Work[credspec.ProgressDeployed])
 	m.blank()
 
 	type key struct{ system, env string }
@@ -134,7 +134,7 @@ func planSummary(m *md, rep Report) {
 
 // planChecklist lists, in order, what a person creates by hand: the
 // credentials that are planned or active without a record.
-func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions) {
+func planChecklist(m *md, rep Report, r *credspec.Registry, o PlanOptions) {
 	type group struct {
 		title       string
 		rank        int
@@ -170,15 +170,15 @@ func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions)
 	}
 	for _, c := range r.Credentials {
 		row := byID[c.ID]
-		if row.Progress != omnicredential.ProgressToCreate {
+		if row.Progress != credspec.ProgressToCreate {
 			continue
 		}
-		if c.Handling.Generate != omnicredential.ActorHuman {
+		if c.Handling.Generate != credspec.ActorHuman {
 			auto++
 			continue
 		}
 		g := find("Accounts", 0, "", "")
-		if c.Kind != omnicredential.KindAccount {
+		if c.Kind != credspec.KindAccount {
 			title := c.System
 			if c.Environment != "" {
 				title += " · " + c.Environment
@@ -263,7 +263,7 @@ func checklistItem(m *md, row Row, o PlanOptions) {
 		}
 	}
 	sub("Create", strings.Join(nonEmpty(strings.Join(nonEmpty(c.Issuer.Type, c.Issuer.Account), ", "), g.Where, link("console", c.Issuer.Console)), "; "))
-	if g.Method == omnicredential.MethodDerived {
+	if g.Method == credspec.MethodDerived {
 		sub("Build it from", strings.Join(c.DependsOn, ", "))
 	}
 	if g.Command != "" {
@@ -281,9 +281,9 @@ func checklistItem(m *md, row Row, o PlanOptions) {
 			how = code(how)
 		}
 		label := "Install"
-		if s.Role == omnicredential.RoleRendered {
+		if s.Role == credspec.RoleRendered {
 			label = "Then"
-		} else if s.Role == omnicredential.RoleBackup {
+		} else if s.Role == credspec.RoleBackup {
 			label = "Back up"
 		}
 		sub(label, dest+": "+how)
@@ -295,7 +295,7 @@ func checklistItem(m *md, row Row, o PlanOptions) {
 func planRecord(m *md, rep Report, o PlanOptions) {
 	var rows []Row
 	for _, row := range rep.Rows {
-		if row.Progress == omnicredential.ProgressToRecord {
+		if row.Progress == credspec.ProgressToRecord {
 			rows = append(rows, row)
 		}
 	}
@@ -318,7 +318,7 @@ func planRecord(m *md, rep Report, o PlanOptions) {
 func planDeploy(m *md, rep Report, o PlanOptions) {
 	var rows []Row
 	for _, row := range rep.Rows {
-		if row.Progress == omnicredential.ProgressToDeploy {
+		if row.Progress == credspec.ProgressToDeploy {
 			rows = append(rows, row)
 		}
 	}
@@ -336,7 +336,7 @@ func planDeploy(m *md, rep Report, o PlanOptions) {
 		c := row.Credential
 		m.linef("- [ ] **%s** (%s)", c.ID, strings.Join(nonEmpty(string(c.Handling.Distribute), c.Handling.Automation), ": "))
 		for _, s := range c.Stores {
-			if s.Role == omnicredential.RoleRendered {
+			if s.Role == credspec.RoleRendered {
 				m.linef("    - To %s: %s", strings.Join(nonEmpty(s.Type, code(s.Path)), " "), oneLine(orDash(s.Install)))
 			}
 		}
@@ -360,10 +360,10 @@ func planCalendar(m *md, rep Report, o PlanOptions) {
 	undated := 0
 	for _, row := range rep.Rows {
 		c := row.Credential
-		if c.Status == omnicredential.StatusRetired || row.Record.Revoked != nil {
+		if c.Status == credspec.StatusRetired || row.Record.Revoked != nil {
 			continue
 		}
-		if row.Record.Changed() == nil && (c.Rotation.Policy == omnicredential.PolicyScheduled || c.Rotation.Policy == omnicredential.PolicyOnExpiry) {
+		if row.Record.Changed() == nil && (c.Rotation.Policy == credspec.PolicyScheduled || c.Rotation.Policy == credspec.PolicyOnExpiry) {
 			undated++
 		}
 	}
@@ -410,7 +410,7 @@ func planAccounts(m *md, rep Report) {
 	var rows []Row
 	for _, row := range rep.Rows {
 		c := row.Credential
-		if c.Status != omnicredential.StatusRetired && (c.Kind == omnicredential.KindAccount || len(c.Protections) > 0) {
+		if c.Status != credspec.StatusRetired && (c.Kind == credspec.KindAccount || len(c.Protections) > 0) {
 			rows = append(rows, row)
 		}
 	}
@@ -467,7 +467,7 @@ func planExposure(m *md, rep Report, o PlanOptions) {
 	var lost []Row
 	for _, row := range rep.Rows {
 		c := row.Credential
-		if c.Kind != omnicredential.KindAccount && c.Recovery != "" && c.Status != omnicredential.StatusRetired {
+		if c.Kind != credspec.KindAccount && c.Recovery != "" && c.Status != credspec.StatusRetired {
 			lost = append(lost, row)
 		}
 	}
@@ -482,7 +482,7 @@ func planExposure(m *md, rep Report, o PlanOptions) {
 	for _, row := range lost {
 		var backups []string
 		for _, s := range row.Credential.Stores {
-			if s.Role == omnicredential.RoleBackup {
+			if s.Role == credspec.RoleBackup {
 				backups = append(backups, strings.Join(nonEmpty(s.Type, s.Path), " "))
 			}
 		}

@@ -8,14 +8,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 // Markdown writes a reference of the registry: a summary, then a section
 // per system with a table and each credential's details. It uses only
 // the registry, never the time or the events, so the same registry always
 // gives the same page.
-func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
+func Markdown(w io.Writer, title string, r *credspec.Registry) error {
 	bw := bufio.NewWriter(w)
 	m := &md{w: bw}
 
@@ -28,13 +28,13 @@ func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
 	m.line("| System | Credentials | Planned | Active | Retired | By hand | Automatic |")
 	m.line("|---|---|---|---|---|---|---|")
 	for _, s := range systems {
-		counts := map[omnicredential.Status]int{}
+		counts := map[credspec.Status]int{}
 		for _, c := range s.creds {
 			counts[c.Status]++
 		}
 		h := Summarize(s.creds)
 		m.linef("| [%s](#%s) | %d | %d | %d | %d | %d | %d |", cell(s.name), anchor(s.name), len(s.creds),
-			counts[omnicredential.StatusPlanned], counts[omnicredential.StatusActive], counts[omnicredential.StatusRetired],
+			counts[credspec.StatusPlanned], counts[credspec.StatusActive], counts[credspec.StatusRetired],
 			h.Manual, h.Automatic)
 	}
 	m.blank()
@@ -47,8 +47,8 @@ func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
 	m.blank()
 	m.line("| Step | By hand | By a system |")
 	m.line("|---|---|---|")
-	for _, st := range omnicredential.Stages() {
-		m.linef("| %s | %d | %d |", st, h.ByStage[st][omnicredential.ActorHuman], h.ByStage[st][omnicredential.ActorSystem])
+	for _, st := range credspec.Stages() {
+		m.linef("| %s | %d | %d |", st, h.ByStage[st][credspec.ActorHuman], h.ByStage[st][credspec.ActorSystem])
 	}
 	m.blank()
 	m.linef("Rotation by hand: about %s scheduled rotations a year, and %s when their issuer's expiry comes.",
@@ -79,10 +79,10 @@ func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
 
 type system struct {
 	name  string
-	creds []omnicredential.Credential
+	creds []credspec.Credential
 }
 
-func groupBySystem(r *omnicredential.Registry) []system {
+func groupBySystem(r *credspec.Registry) []system {
 	var out []system
 	for _, c := range r.Credentials {
 		i := slices.IndexFunc(out, func(s system) bool { return s.name == c.System })
@@ -96,7 +96,7 @@ func groupBySystem(r *omnicredential.Registry) []system {
 	return out
 }
 
-func details(m *md, r *omnicredential.Registry, c omnicredential.Credential) {
+func details(m *md, r *credspec.Registry, c credspec.Credential) {
 	m.line(`<a id="` + anchor(c.ID) + `"></a>`)
 	m.blank()
 	m.linef("### %s", c.ID)
@@ -172,14 +172,14 @@ func details(m *md, r *omnicredential.Registry, c omnicredential.Credential) {
 
 // byPlace lists the credentials a person generates, grouped by the issuer
 // and account where they are made: a checklist for whoever sets them up.
-func byPlace(m *md, r *omnicredential.Registry) {
+func byPlace(m *md, r *credspec.Registry) {
 	type place struct {
 		name  string
-		creds []omnicredential.Credential
+		creds []credspec.Credential
 	}
 	var places []place
 	for _, c := range r.Credentials {
-		if c.Status == omnicredential.StatusRetired || c.Handling.Generate != omnicredential.ActorHuman {
+		if c.Status == credspec.StatusRetired || c.Handling.Generate != credspec.ActorHuman {
 			continue
 		}
 		name := strings.Join(nonEmpty(c.Issuer.Type, c.Issuer.Account), ": ")
@@ -226,7 +226,7 @@ func link(title, url string) string {
 	return fmt.Sprintf("[%s](%s)", title, url)
 }
 
-func storeSummary(c omnicredential.Credential) string {
+func storeSummary(c credspec.Credential) string {
 	var parts []string
 	for _, s := range c.Primary() {
 		parts = append(parts, strings.Join(nonEmpty(s.Type, code(s.Path)), " "))
@@ -235,7 +235,7 @@ func storeSummary(c omnicredential.Credential) string {
 }
 
 // manualSummary lists the steps done by hand, or "none".
-func manualSummary(h omnicredential.Handling) string {
+func manualSummary(h credspec.Handling) string {
 	var parts []string
 	for _, st := range h.Manual() {
 		parts = append(parts, string(st))
@@ -246,9 +246,9 @@ func manualSummary(h omnicredential.Handling) string {
 	return strings.Join(parts, ", ")
 }
 
-func handlingSummary(h omnicredential.Handling) string {
+func handlingSummary(h credspec.Handling) string {
 	var parts []string
-	for _, st := range omnicredential.Stages() {
+	for _, st := range credspec.Stages() {
 		parts = append(parts, fmt.Sprintf("%s by %s", st, h.By(st)))
 	}
 	s := strings.Join(parts, ", ")
@@ -258,14 +258,14 @@ func handlingSummary(h omnicredential.Handling) string {
 	return s
 }
 
-func rotationSummary(r omnicredential.Rotation) string {
-	if r.Policy == omnicredential.PolicyScheduled {
+func rotationSummary(r credspec.Rotation) string {
+	if r.Policy == credspec.PolicyScheduled {
 		return fmt.Sprintf("every %d days", r.IntervalDays)
 	}
 	return string(r.Policy)
 }
 
-func issuerSummary(i omnicredential.Issuer) string {
+func issuerSummary(i credspec.Issuer) string {
 	s := strings.Join(nonEmpty(i.Type, i.Account), ", ")
 	if i.Console != "" {
 		s += fmt.Sprintf(" ([console](%s))", i.Console)

@@ -1,4 +1,4 @@
-# OmniCredential: Product Requirements
+# systemspec-credential: Product Requirements
 
 ## Problem
 
@@ -54,7 +54,7 @@ do, who uses it, and how it must be rotated.
 
 ## Non-Goals
 
-- **Storing or reading secret values.** OmniCredential never holds a
+- **Storing or reading secret values.** systemspec-credential never holds a
   value. Stores such as a cloud parameter store, a secrets manager or a
   password manager do.
 - **Issuing credentials** at their issuer (GitHub, a cloud provider) in

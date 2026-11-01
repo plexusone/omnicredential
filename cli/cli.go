@@ -1,4 +1,4 @@
-// Package cli is omnicredential's command line as a Cobra command a host
+// Package cli is the credspec command line as a Cobra command a host
 // tool can mount over its own registry, such as one built in Go.
 package cli
 
@@ -16,9 +16,9 @@ import (
 	oscfs "github.com/grokify/oscompat/fs"
 	"github.com/spf13/cobra"
 
-	"github.com/plexusone/omnicredential"
-	"github.com/plexusone/omnicredential/report"
-	"github.com/plexusone/omnicredential/schema"
+	"github.com/plexusone/systemspec-credential/credspec"
+	"github.com/plexusone/systemspec-credential/report"
+	"github.com/plexusone/systemspec-credential/schema"
 )
 
 // Options configure the command.
@@ -31,7 +31,7 @@ type Options struct {
 	Title string
 	// Registry builds the registry. When nil, the command reads the JSON
 	// file named by its --registry flag.
-	Registry func() (*omnicredential.Registry, error)
+	Registry func() (*credspec.Registry, error)
 	// RegistryPath is --registry's default when Registry is nil.
 	RegistryPath string
 	// EventsPath is --events's default: the event log file.
@@ -49,7 +49,7 @@ type env struct {
 // New returns the command tree.
 func New(o Options) *cobra.Command {
 	if o.Use == "" {
-		o.Use = "omnicredential"
+		o.Use = "credspec"
 	}
 	if o.Short == "" {
 		o.Short = "Keep a registry of credentials without their values, record their lifecycle and report on them"
@@ -76,8 +76,8 @@ func New(o Options) *cobra.Command {
 	return cmd
 }
 
-func (e *env) load() (*omnicredential.Registry, *omnicredential.Log, error) {
-	var r *omnicredential.Registry
+func (e *env) load() (*credspec.Registry, *credspec.Log, error) {
+	var r *credspec.Registry
 	var err error
 	if e.opts.Registry != nil {
 		if r, err = e.opts.Registry(); err != nil {
@@ -86,10 +86,10 @@ func (e *env) load() (*omnicredential.Registry, *omnicredential.Log, error) {
 		if err := r.Validate(); err != nil {
 			return nil, nil, fmt.Errorf("registry: %w", err)
 		}
-	} else if r, err = omnicredential.LoadRegistry(e.registry); err != nil {
+	} else if r, err = credspec.LoadRegistry(e.registry); err != nil {
 		return nil, nil, err
 	}
-	l, err := omnicredential.LoadLog(e.events, r)
+	l, err := credspec.LoadLog(e.events, r)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -119,7 +119,7 @@ type when struct {
 
 func (w *when) flags(c *cobra.Command) {
 	c.Flags().StringVar(&w.asOf, "as-of", "", "assess at this date or RFC 3339 time instead of now")
-	c.Flags().IntVar(&w.warnDays, "warn-days", int(omnicredential.DefaultWarn/(24*time.Hour)), "warn this many days before an expiry or a rotation date")
+	c.Flags().IntVar(&w.warnDays, "warn-days", int(credspec.DefaultWarn/(24*time.Hour)), "warn this many days before an expiry or a rotation date")
 }
 
 func (w *when) resolve(now func() time.Time) (time.Time, time.Duration, error) {
@@ -149,16 +149,16 @@ func parseTime(s string) (time.Time, error) {
 	return t, nil
 }
 
-func parseStates(s string) ([]omnicredential.State, error) {
-	var out []omnicredential.State
+func parseStates(s string) ([]credspec.State, error) {
+	var out []credspec.State
 	for _, part := range strings.Split(s, ",") {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
-		st := omnicredential.State(part)
-		if !slices.Contains(omnicredential.States(), st) {
-			return nil, fmt.Errorf("unknown state %q; states are %v", part, omnicredential.States())
+		st := credspec.State(part)
+		if !slices.Contains(credspec.States(), st) {
+			return nil, fmt.Errorf("unknown state %q; states are %v", part, credspec.States())
 		}
 		out = append(out, st)
 	}
@@ -190,8 +190,8 @@ func (e *env) status() *cobra.Command {
 			}
 			work := splitList(progress)
 			for _, p := range work {
-				if !slices.Contains(omnicredential.Progresses(), omnicredential.Progress(p)) {
-					return fmt.Errorf("--progress: unknown %q; use %v", p, omnicredential.Progresses())
+				if !slices.Contains(credspec.Progresses(), credspec.Progress(p)) {
+					return fmt.Errorf("--progress: unknown %q; use %v", p, credspec.Progresses())
 				}
 			}
 			r, l, err := e.load()
@@ -199,7 +199,7 @@ func (e *env) status() *cobra.Command {
 				return err
 			}
 			rep := report.Build(e.opts.Title, r, l, now, warn)
-			quiet := []omnicredential.State{omnicredential.StateOK, omnicredential.StatePlanned, omnicredential.StateRetired}
+			quiet := []credspec.State{credspec.StateOK, credspec.StatePlanned, credspec.StateRetired}
 			var rows []report.Row
 			for _, row := range rep.Rows {
 				st := row.Assessment.State
@@ -242,7 +242,7 @@ func (e *env) status() *cobra.Command {
 
 // matchIDs returns the ID itself, or with a *, every ID the pattern
 // matches; it is an error when nothing matches.
-func matchIDs(r *omnicredential.Registry, pattern string) ([]string, error) {
+func matchIDs(r *credspec.Registry, pattern string) ([]string, error) {
 	if !strings.Contains(pattern, "*") {
 		return []string{pattern}, nil
 	}
@@ -272,7 +272,7 @@ func splitList(s string) []string {
 	return out
 }
 
-func joinStates(states []omnicredential.State) string {
+func joinStates(states []credspec.State) string {
 	parts := make([]string, len(states))
 	for i, s := range states {
 		parts[i] = string(s)
@@ -379,8 +379,8 @@ func (e *env) report() *cobra.Command {
 
 func (e *env) record() *cobra.Command {
 	var at, expires, by, note string
-	types := make([]string, len(omnicredential.EventTypes()))
-	for i, t := range omnicredential.EventTypes() {
+	types := make([]string, len(credspec.EventTypes()))
+	for i, t := range credspec.EventTypes() {
 		types[i] = string(t)
 	}
 	c := &cobra.Command{
@@ -396,7 +396,7 @@ func (e *env) record() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			ev := omnicredential.Event{Type: omnicredential.EventType(args[1]), By: by, Note: note}
+			ev := credspec.Event{Type: credspec.EventType(args[1]), By: by, Note: note}
 			ev.At = e.opts.Now()
 			if at != "" {
 				t, err := parseTime(at)

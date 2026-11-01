@@ -8,43 +8,43 @@ import (
 	"testing"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
-func cred(id, system string, policy omnicredential.Policy, days int) omnicredential.Credential {
-	return omnicredential.Credential{
+func cred(id, system string, policy credspec.Policy, days int) credspec.Credential {
+	return credspec.Credential{
 		ID: id, Name: id[strings.LastIndex(id, "/")+1:], System: system, Environment: "prod",
-		Kind: omnicredential.KindRandomSecret, Status: omnicredential.StatusActive, Owner: "ops",
-		Issuer:     omnicredential.Issuer{Type: omnicredential.IssuerSelf},
-		Generation: omnicredential.Generation{Method: omnicredential.MethodRandom, Command: "openssl rand -hex 32"},
-		Stores:     []omnicredential.Store{{Type: omnicredential.StoreAWSSSM, Role: omnicredential.RolePrimary, Path: "/x/" + id}},
-		Rotation:   omnicredential.Rotation{Policy: policy, IntervalDays: days},
-		Handling: omnicredential.Handling{Generate: omnicredential.ActorHuman, Distribute: omnicredential.ActorSystem,
-			Rotate: omnicredential.ActorHuman, Automation: "deploy"},
+		Kind: credspec.KindRandomSecret, Status: credspec.StatusActive, Owner: "ops",
+		Issuer:     credspec.Issuer{Type: credspec.IssuerSelf},
+		Generation: credspec.Generation{Method: credspec.MethodRandom, Command: "openssl rand -hex 32"},
+		Stores:     []credspec.Store{{Type: credspec.StoreAWSSSM, Role: credspec.RolePrimary, Path: "/x/" + id}},
+		Rotation:   credspec.Rotation{Policy: policy, IntervalDays: days},
+		Handling: credspec.Handling{Generate: credspec.ActorHuman, Distribute: credspec.ActorSystem,
+			Rotate: credspec.ActorHuman, Automation: "deploy"},
 	}
 }
 
-func fixture(t *testing.T) (*omnicredential.Registry, *omnicredential.Log, time.Time) {
+func fixture(t *testing.T) (*credspec.Registry, *credspec.Log, time.Time) {
 	t.Helper()
-	ok := cred("b-app/prod/OK", "b-app", omnicredential.PolicyScheduled, 365)
-	overdue := cred("a-app/prod/OLD", "a-app", omnicredential.PolicyScheduled, 30)
+	ok := cred("b-app/prod/OK", "b-app", credspec.PolicyScheduled, 365)
+	overdue := cred("a-app/prod/OLD", "a-app", credspec.PolicyScheduled, 30)
 	overdue.Description = `</script><script>alert(1)</script> | pipe`
 	overdue.Stores[0].Install = "aws ssm put-parameter --name /x/a-app/prod/OLD"
 	overdue.Stores[0].Console = "https://console.example.com/ssm"
 	overdue.Reaches = []string{"b-app/prod/OK"}
 	overdue.Protections = []string{"MFA"}
 	overdue.Recovery = "None: regenerate."
-	planned := cred("a-app/staging/NEW", "a-app", omnicredential.PolicyOnDemand, 0)
-	planned.Status = omnicredential.StatusPlanned
-	planned.Handling = omnicredential.Handling{Generate: omnicredential.ActorSystem, Distribute: omnicredential.ActorSystem, Rotate: omnicredential.ActorSystem}
-	r := omnicredential.NewRegistry(ok, overdue, planned)
+	planned := cred("a-app/staging/NEW", "a-app", credspec.PolicyOnDemand, 0)
+	planned.Status = credspec.StatusPlanned
+	planned.Handling = credspec.Handling{Generate: credspec.ActorSystem, Distribute: credspec.ActorSystem, Rotate: credspec.ActorSystem}
+	r := credspec.NewRegistry(ok, overdue, planned)
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	l := omnicredential.NewLog()
-	for _, e := range []omnicredential.Event{
-		{Credential: ok.ID, Type: omnicredential.EventCreated, At: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)},
-		{Credential: overdue.ID, Type: omnicredential.EventCreated, At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), By: "ops"},
+	l := credspec.NewLog()
+	for _, e := range []credspec.Event{
+		{Credential: ok.ID, Type: credspec.EventCreated, At: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)},
+		{Credential: overdue.ID, Type: credspec.EventCreated, At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), By: "ops"},
 	} {
 		if err := l.Append(r, e); err != nil {
 			t.Fatal(err)
@@ -55,7 +55,7 @@ func fixture(t *testing.T) (*omnicredential.Registry, *omnicredential.Log, time.
 
 func TestBuildOrdersByUrgency(t *testing.T) {
 	r, l, now := fixture(t)
-	rep := Build("Credentials", r, l, now, omnicredential.DefaultWarn)
+	rep := Build("Credentials", r, l, now, credspec.DefaultWarn)
 	var got []string
 	for _, row := range rep.Rows {
 		got = append(got, string(row.Assessment.State)+" "+row.Credential.ID)
@@ -71,13 +71,13 @@ func TestBuildOrdersByUrgency(t *testing.T) {
 	if h := rep.Handling; h.RotationsPerYear != 13.2 || h.ExpiringByHand != 0 {
 		t.Errorf("rotations = %v, expiring = %d", h.RotationsPerYear, h.ExpiringByHand)
 	}
-	if h := rep.Handling; h.Total != 3 || h.Manual != 2 || h.Automatic != 1 || h.ByStage[omnicredential.StageRotate][omnicredential.ActorHuman] != 2 {
+	if h := rep.Handling; h.Total != 3 || h.Manual != 2 || h.Automatic != 1 || h.ByStage[credspec.StageRotate][credspec.ActorHuman] != 2 {
 		t.Errorf("handling = %+v", rep.Handling)
 	}
-	if rep.Counts[omnicredential.StateOverdue] != 1 || rep.WarnDays != 30 {
+	if rep.Counts[credspec.StateOverdue] != 1 || rep.WarnDays != 30 {
 		t.Errorf("counts = %v, warn = %d", rep.Counts, rep.WarnDays)
 	}
-	if len(rep.Filter(omnicredential.StateOverdue, omnicredential.StateExpired)) != 1 {
+	if len(rep.Filter(credspec.StateOverdue, credspec.StateExpired)) != 1 {
 		t.Error("Filter")
 	}
 	if len(rep.Rows[0].History) != 1 || rep.Rows[1].History == nil {
@@ -91,14 +91,14 @@ func TestBuildOrdersByUrgency(t *testing.T) {
 func TestJSON(t *testing.T) {
 	r, l, now := fixture(t)
 	var b bytes.Buffer
-	if err := Build("Credentials", r, l, now, omnicredential.DefaultWarn).JSON(&b); err != nil {
+	if err := Build("Credentials", r, l, now, credspec.DefaultWarn).JSON(&b); err != nil {
 		t.Fatal(err)
 	}
 	var back Report
 	if err := json.Unmarshal(b.Bytes(), &back); err != nil {
 		t.Fatal(err)
 	}
-	if len(back.Rows) != 3 || back.Rows[0].Assessment.State != omnicredential.StateOverdue {
+	if len(back.Rows) != 3 || back.Rows[0].Assessment.State != credspec.StateOverdue {
 		t.Errorf("round trip: %+v", back.Rows)
 	}
 }
@@ -106,7 +106,7 @@ func TestJSON(t *testing.T) {
 func TestHTMLIsSelfContainedAndEscaped(t *testing.T) {
 	r, l, now := fixture(t)
 	var b bytes.Buffer
-	if err := Build("Team <credentials>", r, l, now, omnicredential.DefaultWarn).HTML(&b); err != nil {
+	if err := Build("Team <credentials>", r, l, now, credspec.DefaultWarn).HTML(&b); err != nil {
 		t.Fatal(err)
 	}
 	out := b.String()

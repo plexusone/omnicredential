@@ -1,4 +1,4 @@
-package omnicredential
+package credspec
 
 import (
 	"fmt"

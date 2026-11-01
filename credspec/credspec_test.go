@@ -1,4 +1,4 @@
-package omnicredential
+package credspec
 
 import (
 	"errors"
@@ -416,11 +416,11 @@ func TestListsAreComplete(t *testing.T) {
 }
 
 func TestExampleFilesAreValid(t *testing.T) {
-	r, err := LoadRegistry(filepath.Join("examples", "basic", "credentials.json"))
+	r, err := LoadRegistry(filepath.Join("..", "examples", "basic", "credentials.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := LoadLog(filepath.Join("examples", "basic", "events.json"), r); err != nil {
+	if _, err := LoadLog(filepath.Join("..", "examples", "basic", "events.json"), r); err != nil {
 		t.Fatal(err)
 	}
 }

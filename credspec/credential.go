@@ -1,4 +1,4 @@
-// Package omnicredential is a registry of credentials without their
+// Package credspec is a registry of credentials without their
 // values: what each credential is for, where and how it is generated,
 // what it is entitled to do, where it is stored, who uses it, who owns
 // it and how it rotates. An event log records when each was created,
@@ -6,7 +6,7 @@
 // entry and its record into a lifecycle state.
 //
 // No type in this package holds a secret value.
-package omnicredential
+package credspec
 
 // FormatVersion is the version of the registry and event log formats.
 const FormatVersion = "1"

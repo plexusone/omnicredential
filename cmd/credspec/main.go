@@ -1,4 +1,4 @@
-// Command omnicredential keeps a registry of credentials without their
+// Command credspec keeps a registry of credentials without their
 // values, records their lifecycle and reports on them. It reads the
 // registry and the event log as JSON files.
 package main
@@ -6,7 +6,7 @@ package main
 import (
 	"os"
 
-	"github.com/plexusone/omnicredential/cli"
+	"github.com/plexusone/systemspec-credential/cli"
 )
 
 func main() {

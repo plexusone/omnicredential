@@ -16,18 +16,18 @@ import (
 
 	"github.com/invopop/jsonschema"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 //go:generate go run ./gen
 
 // ModulePath is the module the types belong to.
-const ModulePath = "github.com/plexusone/omnicredential"
+const ModulePath = "github.com/plexusone/systemspec-credential"
 
 // Schema IDs.
 const (
-	RegistryID = "https://github.com/plexusone/omnicredential/schema/registry.schema.json"
-	EventsID   = "https://github.com/plexusone/omnicredential/schema/events.schema.json"
+	RegistryID = "https://github.com/plexusone/systemspec-credential/schema/registry.schema.json"
+	EventsID   = "https://github.com/plexusone/systemspec-credential/schema/events.schema.json"
 )
 
 // File names, relative to this package's directory.
@@ -56,13 +56,13 @@ func Generate(root string) (registry, events []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	reg := r.Reflect(&omnicredential.Registry{})
+	reg := r.Reflect(&credspec.Registry{})
 	reg.ID = RegistryID
 	reg.Title = "Credential registry"
 	reg.Description = "Every credential of a set of systems, without values: what each is for, how and where it is made, what it may do, where it is stored, who uses it and how it rotates."
 	refine(reg)
 
-	ev := r.Reflect(&omnicredential.Log{})
+	ev := r.Reflect(&credspec.Log{})
 	ev.ID = EventsID
 	ev.Title = "Credential events"
 	ev.Description = "The append-only history of a registry's credentials: when each was created, rotated, verified, given an expiry or revoked."
@@ -104,20 +104,20 @@ func reflector(root string) (*jsonschema.Reflector, error) {
 func enums(t reflect.Type) *jsonschema.Schema {
 	var values []any
 	switch t {
-	case reflect.TypeFor[omnicredential.Status]():
-		values = anys(omnicredential.Statuses())
-	case reflect.TypeFor[omnicredential.Sensitivity]():
-		values = anys(omnicredential.Sensitivities())
-	case reflect.TypeFor[omnicredential.Method]():
-		values = anys(omnicredential.Methods())
-	case reflect.TypeFor[omnicredential.Role]():
-		values = anys(omnicredential.Roles())
-	case reflect.TypeFor[omnicredential.Policy]():
-		values = anys(omnicredential.Policies())
-	case reflect.TypeFor[omnicredential.EventType]():
-		values = anys(omnicredential.EventTypes())
-	case reflect.TypeFor[omnicredential.Actor]():
-		values = anys(omnicredential.Actors())
+	case reflect.TypeFor[credspec.Status]():
+		values = anys(credspec.Statuses())
+	case reflect.TypeFor[credspec.Sensitivity]():
+		values = anys(credspec.Sensitivities())
+	case reflect.TypeFor[credspec.Method]():
+		values = anys(credspec.Methods())
+	case reflect.TypeFor[credspec.Role]():
+		values = anys(credspec.Roles())
+	case reflect.TypeFor[credspec.Policy]():
+		values = anys(credspec.Policies())
+	case reflect.TypeFor[credspec.EventType]():
+		values = anys(credspec.EventTypes())
+	case reflect.TypeFor[credspec.Actor]():
+		values = anys(credspec.Actors())
 	default:
 		return nil
 	}
@@ -145,17 +145,17 @@ func refine(s *jsonschema.Schema) {
 	}
 	slugWith := func(examples []string) func(*jsonschema.Schema) {
 		return func(p *jsonschema.Schema) {
-			p.Pattern = omnicredential.SlugPattern
+			p.Pattern = credspec.SlugPattern
 			p.Examples = anys(examples)
 		}
 	}
-	set("Credential", "id", func(p *jsonschema.Schema) { p.Pattern = omnicredential.IDPattern })
-	set("Credential", "kind", slugWith(omnicredential.Kinds()))
-	set("Issuer", "type", slugWith(omnicredential.Issuers()))
-	set("Store", "type", slugWith(omnicredential.StoreTypes()))
+	set("Credential", "id", func(p *jsonschema.Schema) { p.Pattern = credspec.IDPattern })
+	set("Credential", "kind", slugWith(credspec.Kinds()))
+	set("Issuer", "type", slugWith(credspec.Issuers()))
+	set("Store", "type", slugWith(credspec.StoreTypes()))
 	set("Rotation", "intervalDays", func(p *jsonschema.Schema) { p.Minimum = json.Number("0") })
 	for _, def := range []string{"Registry", "Log"} {
-		set(def, "formatVersion", func(p *jsonschema.Schema) { p.Enum = []any{omnicredential.FormatVersion} })
+		set(def, "formatVersion", func(p *jsonschema.Schema) { p.Enum = []any{credspec.FormatVersion} })
 	}
 	set("Issuer", "console", func(p *jsonschema.Schema) { p.Format = "uri" })
 	set("Link", "url", func(p *jsonschema.Schema) { p.Format = "uri" })

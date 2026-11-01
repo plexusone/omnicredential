@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/plexusone/omnicredential/schema/events.schema.json",
+  "$id": "https://github.com/plexusone/systemspec-credential/schema/events.schema.json",
   "$ref": "#/$defs/Log",
   "$defs": {
     "Event": {

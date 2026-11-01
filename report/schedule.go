@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 // Due is what comes due for a credential.
@@ -27,8 +27,8 @@ type Occurrence struct {
 	// an overdue rotation or an expired value.
 	Late bool `json:"late"`
 	// By is who does the rotation.
-	By  omnicredential.Actor `json:"by"`
-	Row Row                  `json:"-"`
+	By  credspec.Actor `json:"by"`
+	Row Row            `json:"-"`
 }
 
 // Schedule lists what comes due from the report's time until until: each
@@ -40,13 +40,13 @@ func (rep Report) Schedule(until time.Time) []Occurrence {
 	var out []Occurrence
 	for _, row := range rep.Rows {
 		c := row.Credential
-		if c.Status != omnicredential.StatusActive || row.Record.Revoked != nil {
+		if c.Status != credspec.StatusActive || row.Record.Revoked != nil {
 			continue
 		}
 		add := func(d time.Time, due Due) {
 			out = append(out, Occurrence{Date: d, Due: due, Late: !d.After(rep.AsOf), By: c.Handling.Rotate, Row: row})
 		}
-		if changed := row.Record.Changed(); changed != nil && c.Rotation.Policy == omnicredential.PolicyScheduled {
+		if changed := row.Record.Changed(); changed != nil && c.Rotation.Policy == credspec.PolicyScheduled {
 			d := changed.AddDate(0, 0, c.Rotation.IntervalDays)
 			if !d.After(rep.AsOf) {
 				add(d, DueRotate)

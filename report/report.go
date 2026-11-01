@@ -12,35 +12,35 @@ import (
 	"strings"
 	"time"
 
-	"github.com/plexusone/omnicredential"
+	"github.com/plexusone/systemspec-credential/credspec"
 )
 
 // Row is one credential with what the log says about it and its state.
 type Row struct {
-	Credential omnicredential.Credential `json:"credential"`
-	Record     omnicredential.Record     `json:"record"`
-	Assessment omnicredential.Assessment `json:"assessment"`
-	History    []omnicredential.Event    `json:"history"`
+	Credential credspec.Credential `json:"credential"`
+	Record     credspec.Record     `json:"record"`
+	Assessment credspec.Assessment `json:"assessment"`
+	History    []credspec.Event    `json:"history"`
 	// Exposes are the credentials a holder of this one can reach, in all.
 	Exposes []string `json:"exposes"`
 	// ExposedBy are the credentials whose holders can reach this one.
 	ExposedBy []string `json:"exposedBy"`
 	// Progress is where the work stands: to create, to deploy, deployed.
-	Progress omnicredential.Progress `json:"progress"`
+	Progress credspec.Progress `json:"progress"`
 	// NextStep says what to do next, when there is something to do.
 	NextStep string `json:"nextStep,omitempty"`
 }
 
 // Report is every credential's row at a point in time.
 type Report struct {
-	Title    string                       `json:"title"`
-	AsOf     time.Time                    `json:"asOf"`
-	WarnDays int                          `json:"warnDays"`
-	Counts   map[omnicredential.State]int `json:"counts"`
+	Title    string                 `json:"title"`
+	AsOf     time.Time              `json:"asOf"`
+	WarnDays int                    `json:"warnDays"`
+	Counts   map[credspec.State]int `json:"counts"`
 	// Work counts the credentials at each progress.
-	Work     map[omnicredential.Progress]int `json:"work"`
-	Handling HandlingSummary                 `json:"handling"`
-	Rows     []Row                           `json:"rows"`
+	Work     map[credspec.Progress]int `json:"work"`
+	Handling HandlingSummary           `json:"handling"`
+	Rows     []Row                     `json:"rows"`
 }
 
 // HandlingSummary counts who does each lifecycle step, over the
@@ -53,7 +53,7 @@ type HandlingSummary struct {
 	// Automatic is how many have every step done by a system.
 	Automatic int `json:"automatic"`
 	// ByStage counts each stage's actors.
-	ByStage map[omnicredential.Stage]map[omnicredential.Actor]int `json:"byStage"`
+	ByStage map[credspec.Stage]map[credspec.Actor]int `json:"byStage"`
 	// RotationsPerYear is how many times a year a person rotates
 	// credentials on a schedule: the sum of 365 / interval.
 	RotationsPerYear float64 `json:"rotationsPerYear"`
@@ -64,16 +64,16 @@ type HandlingSummary struct {
 
 // Summarize counts who does each step of the credentials, leaving out
 // retired ones.
-func Summarize(creds []omnicredential.Credential) HandlingSummary {
-	h := HandlingSummary{ByStage: map[omnicredential.Stage]map[omnicredential.Actor]int{}}
-	for _, st := range omnicredential.Stages() {
-		h.ByStage[st] = map[omnicredential.Actor]int{}
-		for _, a := range omnicredential.Actors() {
+func Summarize(creds []credspec.Credential) HandlingSummary {
+	h := HandlingSummary{ByStage: map[credspec.Stage]map[credspec.Actor]int{}}
+	for _, st := range credspec.Stages() {
+		h.ByStage[st] = map[credspec.Actor]int{}
+		for _, a := range credspec.Actors() {
 			h.ByStage[st][a] = 0
 		}
 	}
 	for _, c := range creds {
-		if c.Status == omnicredential.StatusRetired {
+		if c.Status == credspec.StatusRetired {
 			continue
 		}
 		h.Total++
@@ -82,14 +82,14 @@ func Summarize(creds []omnicredential.Credential) HandlingSummary {
 		} else {
 			h.Manual++
 		}
-		for _, st := range omnicredential.Stages() {
+		for _, st := range credspec.Stages() {
 			h.ByStage[st][c.Handling.By(st)]++
 		}
-		if c.Handling.Rotate == omnicredential.ActorHuman {
+		if c.Handling.Rotate == credspec.ActorHuman {
 			switch c.Rotation.Policy {
-			case omnicredential.PolicyScheduled:
+			case credspec.PolicyScheduled:
 				h.RotationsPerYear += 365 / float64(c.Rotation.IntervalDays)
-			case omnicredential.PolicyOnExpiry:
+			case credspec.PolicyOnExpiry:
 				h.ExpiringByHand++
 			}
 		}
@@ -100,37 +100,37 @@ func Summarize(creds []omnicredential.Credential) HandlingSummary {
 
 // Urgency orders states for attention: the ones needing action first,
 // the ones needing none last.
-func Urgency() []omnicredential.State {
-	return []omnicredential.State{
-		omnicredential.StateExpired, omnicredential.StateOverdue,
-		omnicredential.StateExpiring, omnicredential.StateDue,
-		omnicredential.StateUnrecorded, omnicredential.StateUnknownExpiry,
-		omnicredential.StatePlanned, omnicredential.StateOK, omnicredential.StateRetired,
+func Urgency() []credspec.State {
+	return []credspec.State{
+		credspec.StateExpired, credspec.StateOverdue,
+		credspec.StateExpiring, credspec.StateDue,
+		credspec.StateUnrecorded, credspec.StateUnknownExpiry,
+		credspec.StatePlanned, credspec.StateOK, credspec.StateRetired,
 	}
 }
 
 // Build assesses every credential at now, warning within warn. A nil log
 // is an empty one. Rows are ordered by urgency, then ID.
-func Build(title string, r *omnicredential.Registry, l *omnicredential.Log, now time.Time, warn time.Duration) Report {
+func Build(title string, r *credspec.Registry, l *credspec.Log, now time.Time, warn time.Duration) Report {
 	if l == nil {
-		l = omnicredential.NewLog()
+		l = credspec.NewLog()
 	}
 	rep := Report{
 		Title:    title,
 		AsOf:     now.UTC(),
 		WarnDays: int(warn / (24 * time.Hour)),
-		Counts:   map[omnicredential.State]int{},
-		Work:     map[omnicredential.Progress]int{},
+		Counts:   map[credspec.State]int{},
+		Work:     map[credspec.Progress]int{},
 		Rows:     make([]Row, 0, len(r.Credentials)),
 	}
 	for _, c := range r.Credentials {
 		rec := l.Record(c.ID)
-		a := omnicredential.Assess(c, rec, now, warn)
+		a := credspec.Assess(c, rec, now, warn)
 		h := l.History(c.ID)
 		if h == nil {
-			h = []omnicredential.Event{}
+			h = []credspec.Event{}
 		}
-		p := omnicredential.ProgressOf(c, rec)
+		p := credspec.ProgressOf(c, rec)
 		rep.Rows = append(rep.Rows, Row{Credential: c, Record: rec, Assessment: a, History: h,
 			Exposes: nonNil(r.Exposes(c.ID)), ExposedBy: nonNil(r.ExposedBy(c.ID)),
 			Progress: p, NextStep: NextStep(c, p)})
@@ -149,7 +149,7 @@ func Build(title string, r *omnicredential.Registry, l *omnicredential.Log, now 
 }
 
 // Filter returns the rows whose state is one of states.
-func (rep Report) Filter(states ...omnicredential.State) []Row {
+func (rep Report) Filter(states ...credspec.State) []Row {
 	var out []Row
 	for _, row := range rep.Rows {
 		if slices.Contains(states, row.Assessment.State) {
@@ -170,11 +170,11 @@ func (rep Report) JSON(w io.Writer) error {
 // NextStep says what to do next for a credential at a progress: where to
 // create it and where to install it, or how it is deployed. It is empty
 // when nothing is to do.
-func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
+func NextStep(c credspec.Credential, p credspec.Progress) string {
 	switch p {
-	case omnicredential.ProgressToRecord:
+	case credspec.ProgressToRecord:
 		return "It exists but nothing is recorded: record it as created, with the date it was made (--at)."
-	case omnicredential.ProgressToCreate:
+	case credspec.ProgressToCreate:
 		var parts []string
 		where := strings.Join(slices.Compact(nonEmpty(c.Generation.Where, c.Issuer.Console)), ", ")
 		create := "Create it"
@@ -186,21 +186,21 @@ func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
 		} else if len(c.Generation.Steps) > 0 {
 			create += " following its steps"
 		}
-		if c.Generation.Method == omnicredential.MethodDerived {
+		if c.Generation.Method == credspec.MethodDerived {
 			create = "Build it from " + strings.Join(c.DependsOn, ", ")
 		}
 		parts = append(parts, create+".")
 		for _, s := range c.Stores {
-			if s.Role != omnicredential.RoleRendered && s.Install != "" {
+			if s.Role != credspec.RoleRendered && s.Install != "" {
 				parts = append(parts, "Install in "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+sentence(s.Install))
 			}
 		}
 		parts = append(parts, "Then record it as created.")
 		return strings.Join(parts, " ")
-	case omnicredential.ProgressToDeploy:
+	case credspec.ProgressToDeploy:
 		var parts []string
 		for _, s := range c.Stores {
-			if s.Role == omnicredential.RoleRendered {
+			if s.Role == credspec.RoleRendered {
 				how := s.Install
 				if how == "" {
 					how = "deploy it there"

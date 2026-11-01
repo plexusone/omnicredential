@@ -1,4 +1,4 @@
-# OmniCredential: Plan
+# systemspec-credential: Plan
 
 ## Approach
 

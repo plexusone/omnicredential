@@ -1,16 +1,16 @@
-# OmniCredential: Technical Requirements
+# systemspec-credential: Technical Requirements
 
 ## Packages
 
 | Package | Purpose | Dependencies |
 |---|---|---|
-| `omnicredential` | Types, validation, event log, state | Standard library only |
+| `credspec` | Types, validation, event log, state | Standard library only |
 | `report` | HTML, Markdown and JSON reports | Standard library only |
 | `schema` | JSON Schemas generated from the types, embedded | `github.com/invopop/jsonschema` |
 | `cli` | The commands as a mountable Cobra command | `github.com/spf13/cobra` |
-| `cmd/omnicredential` | The standalone command over JSON files | `cli` |
+| `cmd/credspec` | The standalone command over JSON files | `cli` |
 
-Importing the root package or `report` adds no third-party dependency.
+Importing `credspec` or `report` adds no third-party dependency.
 
 ## Data Model
 
@@ -199,13 +199,13 @@ records its date (a `meta` element, a comment, an `X-` property), which
 ## Command Line
 
 ```
-omnicredential validate
-omnicredential status   [--fail-on expired,overdue] [--progress to-create,to-deploy] [--manual] [filters]
-omnicredential report   --format html|markdown|plan|ics|json [-o file] [--as-of date]
+credspec validate
+credspec status   [--fail-on expired,overdue] [--progress to-create,to-deploy] [--manual] [filters]
+credspec report   --format html|markdown|plan|ics|json [-o file] [--as-of date]
                         [--months 12] [--environment-order prod,staging] [--system-order a,b] [--remind-days n]
-omnicredential record   <id-or-pattern> <created|rotated|expires|deployed|verified|revoked> [--at] [--expires] [--by] [--note]
-omnicredential export   [-o file]
-omnicredential schema   registry|events [-o file]
+credspec record   <id-or-pattern> <created|rotated|expires|deployed|verified|revoked> [--at] [--expires] [--by] [--note]
+credspec export   [-o file]
+credspec schema   registry|events [-o file]
 ```
 
 The standalone command reads `--registry` (JSON) and `--events`. A host

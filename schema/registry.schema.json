@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/plexusone/omnicredential/schema/registry.schema.json",
+  "$id": "https://github.com/plexusone/systemspec-credential/schema/registry.schema.json",
   "$ref": "#/$defs/Registry",
   "$defs": {
     "Consumer": {

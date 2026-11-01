@@ -141,6 +141,16 @@ root.AddCommand(cli.New(cli.Options{
 Reports hold no values, but they list where every credential is stored and
 what it can reach. Keep them with the registry, not on a public site.
 
+## Documentation
+
+The guides, under [`docs/guides`](docs/guides), cover
+[getting started](docs/guides/getting-started.md),
+[the registry](docs/guides/registry.md),
+[events, work and states](docs/guides/events-and-states.md),
+[reports](docs/guides/reports.md) and
+[use from Go](docs/guides/go.md). Browse them as a site with
+`mkdocs serve`.
+
 ## Specs
 
 [PRD](docs/specs/PRD.md) · [TRD](docs/specs/TRD.md) · [Plan](docs/specs/PLAN.md) · [Roadmap](docs/specs/ROADMAP.md)

@@ -1,0 +1,66 @@
+site_name: systemspec-credential
+site_description: A registry of credentials without their values, with their lifecycle, reports and a deploy gate
+site_url: https://plexusone.github.io/systemspec-credential/
+repo_url: https://github.com/plexusone/systemspec-credential
+repo_name: plexusone/systemspec-credential
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  palette:
+    # Dark mode first (PlexusOne default)
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - https://plexusone.dev/css/plexusone-mkdocs.css
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - tables
+  - toc:
+      permalink: true
+
+# docs/guides/ holds the user guides and docs/specs/ the design
+# documents.
+nav:
+  - Home: index.md
+  - Guides:
+      - Getting Started: guides/getting-started.md
+      - The Registry: guides/registry.md
+      - Events, Work and States: guides/events-and-states.md
+      - Reports: guides/reports.md
+      - Using It from Go: guides/go.md
+  - API Reference: https://pkg.go.dev/github.com/plexusone/systemspec-credential
+  - Design:
+      - Product Requirements: specs/PRD.md
+      - Technical Requirements: specs/TRD.md
+      - Plan: specs/PLAN.md
+      - Roadmap: specs/ROADMAP.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/plexusone/systemspec-credential

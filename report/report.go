@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"io"
+	"math"
 	"slices"
 	"time"
 
@@ -19,6 +20,10 @@ type Row struct {
 	Record     omnicredential.Record     `json:"record"`
 	Assessment omnicredential.Assessment `json:"assessment"`
 	History    []omnicredential.Event    `json:"history"`
+	// Exposes are the credentials a holder of this one can reach, in all.
+	Exposes []string `json:"exposes"`
+	// ExposedBy are the credentials whose holders can reach this one.
+	ExposedBy []string `json:"exposedBy"`
 }
 
 // Report is every credential's row at a point in time.
@@ -42,6 +47,12 @@ type HandlingSummary struct {
 	Automatic int `json:"automatic"`
 	// ByStage counts each stage's actors.
 	ByStage map[omnicredential.Stage]map[omnicredential.Actor]int `json:"byStage"`
+	// RotationsPerYear is how many times a year a person rotates
+	// credentials on a schedule: the sum of 365 / interval.
+	RotationsPerYear float64 `json:"rotationsPerYear"`
+	// ExpiringByHand is how many credentials a person rotates when the
+	// issuer's expiry comes.
+	ExpiringByHand int `json:"expiringByHand"`
 }
 
 // Summarize counts who does each step of the credentials, leaving out
@@ -67,7 +78,16 @@ func Summarize(creds []omnicredential.Credential) HandlingSummary {
 		for _, st := range omnicredential.Stages() {
 			h.ByStage[st][c.Handling.By(st)]++
 		}
+		if c.Handling.Rotate == omnicredential.ActorHuman {
+			switch c.Rotation.Policy {
+			case omnicredential.PolicyScheduled:
+				h.RotationsPerYear += 365 / float64(c.Rotation.IntervalDays)
+			case omnicredential.PolicyOnExpiry:
+				h.ExpiringByHand++
+			}
+		}
 	}
+	h.RotationsPerYear = math.Round(h.RotationsPerYear*10) / 10
 	return h
 }
 
@@ -102,7 +122,8 @@ func Build(title string, r *omnicredential.Registry, l *omnicredential.Log, now 
 		if h == nil {
 			h = []omnicredential.Event{}
 		}
-		rep.Rows = append(rep.Rows, Row{Credential: c, Record: rec, Assessment: a, History: h})
+		rep.Rows = append(rep.Rows, Row{Credential: c, Record: rec, Assessment: a, History: h,
+			Exposes: nonNil(r.Exposes(c.ID)), ExposedBy: nonNil(r.ExposedBy(c.ID))})
 		rep.Counts[a.State]++
 	}
 	rep.Handling = Summarize(r.Credentials)
@@ -133,4 +154,11 @@ func (rep Report) JSON(w io.Writer) error {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	return enc.Encode(rep)
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }

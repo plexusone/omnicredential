@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/plexusone/omnicredential"
@@ -50,6 +51,10 @@ func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
 		m.linef("| %s | %d | %d |", st, h.ByStage[st][omnicredential.ActorHuman], h.ByStage[st][omnicredential.ActorSystem])
 	}
 	m.blank()
+	m.linef("Rotation by hand: about %s scheduled rotations a year, and %s when their issuer's expiry comes.",
+		strconv.FormatFloat(h.RotationsPerYear, 'f', -1, 64), credentials(h.ExpiringByHand))
+	m.blank()
+	byPlace(m, r)
 
 	for _, s := range systems {
 		m.line("## " + s.name)
@@ -63,7 +68,7 @@ func Markdown(w io.Writer, title string, r *omnicredential.Registry) error {
 		}
 		m.blank()
 		for _, c := range s.creds {
-			details(m, c)
+			details(m, r, c)
 		}
 	}
 	if err := m.err; err != nil {
@@ -91,7 +96,7 @@ func groupBySystem(r *omnicredential.Registry) []system {
 	return out
 }
 
-func details(m *md, c omnicredential.Credential) {
+func details(m *md, r *omnicredential.Registry, c omnicredential.Credential) {
 	m.line(`<a id="` + anchor(c.ID) + `"></a>`)
 	m.blank()
 	m.linef("### %s", c.ID)
@@ -122,13 +127,18 @@ func details(m *md, c omnicredential.Credential) {
 		field("Entitled", strings.Join(nonEmpty(e.Resource+": "+e.Access, e.Note), "; "))
 	}
 	for _, s := range c.Stores {
-		field("Stored ("+string(s.Role)+")", strings.Join(nonEmpty(s.Type, s.Account, code(s.Path), s.Note), "; "))
+		field("Stored ("+string(s.Role)+")", strings.Join(nonEmpty(s.Type, s.Account, code(s.Path), s.Note, link("console", s.Console)), "; "))
+		if s.Install != "" {
+			field("Install ("+string(s.Role)+")", s.Install)
+		}
 	}
 	for _, u := range c.Consumers {
 		field("Used by", strings.Join(nonEmpty(strings.Join(nonEmpty(u.System, u.Component), " / "), u.Via, u.Note), "; "))
 	}
 	field("Handling", handlingSummary(c.Handling))
 	field("Rotation", rotationSummary(c.Rotation))
+	field("Protections", strings.Join(c.Protections, "; "))
+	field("Recovery", c.Recovery)
 	field("Rotation procedure", c.Rotation.Procedure)
 	field("Rotation impact", c.Rotation.Impact)
 	field("Revocation", c.Revocation)
@@ -140,11 +150,85 @@ func details(m *md, c omnicredential.Credential) {
 		}
 		field("Depends on", strings.Join(deps, ", "))
 	}
+	if len(c.Reaches) > 0 {
+		var reach []string
+		for _, d := range c.Reaches {
+			reach = append(reach, fmt.Sprintf("[%s](#%s)", d, anchor(d)))
+		}
+		field("Reaches", strings.Join(reach, ", "))
+	}
+	if n := len(r.Exposes(c.ID)); n > 0 {
+		field("Exposes in all", credentials(n))
+	}
+	if n := len(r.ExposedBy(c.ID)); n > 0 {
+		field("Exposed by", credentials(n))
+	}
 	field("Tags", strings.Join(c.Tags, ", "))
 	for _, l := range c.Links {
 		field("Link", fmt.Sprintf("[%s](%s)", strings.ReplaceAll(l.Title, "]", ")"), l.URL))
 	}
 	m.blank()
+}
+
+// byPlace lists the credentials a person generates, grouped by the issuer
+// and account where they are made: a checklist for whoever sets them up.
+func byPlace(m *md, r *omnicredential.Registry) {
+	type place struct {
+		name, console string
+		creds         []omnicredential.Credential
+	}
+	var places []place
+	for _, c := range r.Credentials {
+		if c.Status == omnicredential.StatusRetired || c.Handling.Generate != omnicredential.ActorHuman {
+			continue
+		}
+		name := strings.Join(nonEmpty(c.Issuer.Type, c.Issuer.Account), ": ")
+		i := slices.IndexFunc(places, func(p place) bool { return p.name == name })
+		if i < 0 {
+			places = append(places, place{name: name})
+			i = len(places) - 1
+		}
+		if places[i].console == "" {
+			places[i].console = c.Issuer.Console
+		}
+		places[i].creds = append(places[i].creds, c)
+	}
+	if len(places) == 0 {
+		return
+	}
+	slices.SortStableFunc(places, func(a, b place) int { return strings.Compare(a.name, b.name) })
+	m.line("## By Hand, by Place")
+	m.blank()
+	m.line("Where each credential made by hand is created, grouped by issuer, with the store it goes to. Each one's details give the steps.")
+	m.blank()
+	for _, p := range places {
+		title := "### " + p.name
+		m.line(title)
+		m.blank()
+		if p.console != "" {
+			m.line("Console: " + p.console)
+			m.blank()
+		}
+		for _, c := range p.creds {
+			dest := storeSummary(c)
+			m.linef("- [%s](#%s) (%s) → %s", c.ID, anchor(c.ID), c.Status, dest)
+		}
+		m.blank()
+	}
+}
+
+func credentials(n int) string {
+	if n == 1 {
+		return "1 credential"
+	}
+	return fmt.Sprintf("%d credentials", n)
+}
+
+func link(title, url string) string {
+	if url == "" {
+		return ""
+	}
+	return fmt.Sprintf("[%s](%s)", title, url)
 }
 
 func storeSummary(c omnicredential.Credential) string {

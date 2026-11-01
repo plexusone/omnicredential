@@ -77,7 +77,7 @@ footer { color: var(--muted); font-size: 12px; max-width: 1400px; margin: 0 auto
 <header>
   <h1>{{.Title}}</h1>
   <div class="meta">State as of {{.AsOf}} · warnings {{.WarnDays}} days ahead · {{.Total}} credentials · no secret values are included</div>
-  <div class="handling">By hand: <strong>{{.Handling.Manual}}</strong> of {{.Handling.Total}} credentials need a person for at least one step ({{range $i, $s := .Stages}}{{if $i}} · {{end}}{{$s.Name}} {{$s.Human}}{{end}}) · automatic: <strong>{{.Handling.Automatic}}</strong></div>
+  <div class="handling">By hand: <strong>{{.Handling.Manual}}</strong> of {{.Handling.Total}} credentials need a person for at least one step ({{range $i, $s := .Stages}}{{if $i}} · {{end}}{{$s.Name}} {{$s.Human}}{{end}}) · automatic: <strong>{{.Handling.Automatic}}</strong> · rotations by hand: about <strong>{{.Handling.RotationsPerYear}}</strong> a year on schedules, and {{.Handling.ExpiringByHand}} at expiry</div>
   <div class="chips" id="chips" role="group" aria-label="Filter by state"></div>
 </header>
 <main>
@@ -164,6 +164,7 @@ footer { color: var(--muted); font-size: 12px; max-width: 1400px; margin: 0 auto
     { key: "owner", label: "Owner", val: (r) => r.credential.owner, hide: true },
     { key: "rotation", label: "Rotation", val: (r) => rot(r.credential.rotation), hide: true },
     { key: "byhand", label: "By hand", val: (r) => manual(r).join(", ") || "none", hide: true },
+    { key: "exposes", label: "Exposes", val: (r) => r.exposes.length, cell: (r) => el("span", { title: "credentials a holder of this one can reach" }, r.exposes.length ? String(r.exposes.length) : "–"), hide: true },
     { key: "next", label: "Next date", val: (r) => day(r.assessment.next) || "9999", cell: (r) => el("span", { class: "nowrap" }, day(r.assessment.next) || "–") },
   ];
 
@@ -248,24 +249,31 @@ footer { color: var(--muted); font-size: 12px; max-width: 1400px; margin: 0 auto
 
   const detail = (r) => {
     const c = r.credential, g = c.generation, rec = r.record;
-    const deps = (c.dependsOn || []).map((d) => {
+    const go = (d) => {
       const a = el("a", { href: "#" }, d);
       a.addEventListener("click", (e) => { e.preventDefault(); state.q = d; state.f = {}; state.open.add(d); render(); });
       return a;
-    });
+    };
+    const links = (ids) => (ids.length ? el("span", {}, ...ids.map(go).flatMap((a, i) => (i ? [", ", a] : [a]))) : "");
+    const deps = (c.dependsOn || []).map(go);
     return el("div", { class: "grid" },
       section("About", dl([["Description", c.description], ["Exposure", c.exposure], ["Sensitivity", c.sensitivity],
         ["Status", c.status], ["Owner", c.owner], ["State", r.assessment.state + ": " + r.assessment.reason],
+        ["Protections", (c.protections || []).join("; ")], ["Recovery", c.recovery],
         ["Tags", (c.tags || []).join(", ")], ["Depends on", deps.length ? el("span", {}, ...deps.flatMap((a, i) => (i ? [", ", a] : [a]))) : ""]])),
       section("Issued and generated", dl([["Issuer", join(c.issuer.type, c.issuer.account)],
         ["Console", c.issuer.console ? link(c.issuer.console) : ""], ["Method", g.method], ["Spec", g.spec], ["Where", g.where],
         ["Command", g.command ? el("code", {}, g.command) : ""], ["Steps", g.steps && g.steps.length ? el("ol", { class: "plain" }, ...g.steps.map((s) => el("li", {}, s))) : ""]])),
       section("Entitlements", list((c.entitlements || []).map((e) => el("span", {}, el("code", {}, e.resource), " ", e.access, e.note ? " — " + e.note : "")))),
-      section("Stored in", list((c.stores || []).map((s) => el("span", {}, el("strong", {}, s.role), " ", join(s.type, s.account), " ", s.path ? el("code", {}, s.path) : "", s.note ? " — " + s.note : "")))),
+      section("Stored in, and how it gets there", list((c.stores || []).map((s) => el("span", {}, el("strong", {}, s.role), " ", join(s.type, s.account), " ",
+        s.path ? el("code", {}, s.path) : "", s.note ? " — " + s.note : "", s.console ? el("span", {}, " · ", link(s.console, "console")) : "",
+        s.install ? el("div", {}, "Install: ", /^[a-z][\w-]* /.test(s.install) && !/\. /.test(s.install) ? el("code", {}, s.install) : s.install) : "")))),
       section("Used by", list((c.consumers || []).map((u) => el("span", {}, join(u.system, u.component), u.via ? el("span", {}, " via ", el("code", {}, u.via)) : "", u.note ? " — " + u.note : "")))),
       section("Who does what", dl([["Generate", c.handling.generate], ["Distribute", c.handling.distribute],
         ["Rotate", c.handling.rotate], ["Automation", c.handling.automation]])),
       section("Rotation and revocation", dl([["Policy", rot(c.rotation)], ["Procedure", c.rotation.procedure], ["Impact", c.rotation.impact], ["Revocation", c.revocation]])),
+      section("Reach", dl([["Reaches directly", links(c.reaches || [])], ["Exposes in all (" + r.exposes.length + ")", links(r.exposes)],
+        ["Exposed by (" + r.exposedBy.length + ")", links(r.exposedBy)]])),
       section("Record", dl([["Created", day(rec.created)], ["Rotated", day(rec.rotated)], ["Expires", day(rec.expires)],
         ["Verified", day(rec.verified)], ["Revoked", day(rec.revoked)], ["Next date", day(r.assessment.next)]])),
       section("History", list(r.history.map((e) => join(day(e.at), e.type, e.expires ? "expires " + day(e.expires) : "", e.by, e.note)))),

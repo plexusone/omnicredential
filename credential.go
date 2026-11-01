@@ -53,8 +53,19 @@ type Credential struct {
 	// Exposure says what someone holding a leaked value can do.
 	Exposure string `json:"exposure,omitempty"`
 	// DependsOn lists the IDs this credential is derived from, such as
-	// the password inside a connection string.
+	// the password inside a connection string. A holder of this one also
+	// holds those.
 	DependsOn []string `json:"dependsOn,omitempty"`
+	// Reaches lists the IDs a holder of this credential can read, use or
+	// replace, such as the parameters a cloud identity may read. With
+	// DependsOn, it gives what a leak exposes in all.
+	Reaches []string `json:"reaches,omitempty"`
+	// Protections are what guard the credential besides its secrecy, such
+	// as "MFA: hardware key" or "SSO only".
+	Protections []string `json:"protections,omitempty"`
+	// Recovery says how to regain access when the value is lost, or that
+	// it cannot be.
+	Recovery string `json:"recovery,omitempty"`
 	// Tags are free labels.
 	Tags []string `json:"tags,omitempty"`
 	// Links point to documentation and consoles.
@@ -75,6 +86,9 @@ const (
 	KindEncryptionKey       = "encryption-key"
 	KindSSHKey              = "ssh-key"
 	KindFederated           = "federated"
+	// KindAccount is a person's login to a service that controls other
+	// credentials, such as a cloud root account or a registrar account.
+	KindAccount = "account"
 )
 
 // Kinds lists the well-known credential kinds.
@@ -83,7 +97,7 @@ func Kinds() []string {
 		KindRandomSecret, KindPassword, KindPrivateKey, KindCertificate,
 		KindConnectionString, KindOAuthClient, KindAPIToken,
 		KindPersonalAccessToken, KindAccessKey, KindEncryptionKey,
-		KindSSHKey, KindFederated,
+		KindSSHKey, KindFederated, KindAccount,
 	}
 }
 
@@ -140,11 +154,12 @@ const (
 	IssuerGoogleCloud = "google-cloud"
 	IssuerPostgres    = "postgres"
 	IssuerStripe      = "stripe"
+	IssuerRegistrar   = "registrar"
 )
 
 // Issuers lists the well-known issuer types.
 func Issuers() []string {
-	return []string{IssuerSelf, IssuerAWS, IssuerCloudflare, IssuerGitHub, IssuerGoogleCloud, IssuerPostgres, IssuerStripe}
+	return []string{IssuerSelf, IssuerAWS, IssuerCloudflare, IssuerGitHub, IssuerGoogleCloud, IssuerPostgres, IssuerStripe, IssuerRegistrar}
 }
 
 // Generation says how and where a value is made.
@@ -207,6 +222,11 @@ type Store struct {
 	Account string `json:"account,omitempty"`
 	// Path is the parameter, secret, item or file name.
 	Path string `json:"path,omitempty"`
+	// Console is the https URL where the store is managed.
+	Console string `json:"console,omitempty"`
+	// Install says how the value gets here: the command or the steps a
+	// person follows, or the system that writes it.
+	Install string `json:"install,omitempty"`
 	// Note adds detail.
 	Note string `json:"note,omitempty"`
 }

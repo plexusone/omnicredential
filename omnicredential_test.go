@@ -404,7 +404,7 @@ func TestAssess(t *testing.T) {
 }
 
 func TestListsAreComplete(t *testing.T) {
-	if len(States()) != 9 || len(EventTypes()) != 5 || len(Kinds()) != 12 || len(StoreTypes()) != 9 || len(Issuers()) != 7 {
+	if len(States()) != 9 || len(EventTypes()) != 5 || len(Kinds()) != 13 || len(StoreTypes()) != 9 || len(Issuers()) != 8 {
 		t.Error("a list changed size; update the documentation and the schema")
 	}
 	if len(NewRegistry(secret("a")).Credentials[0].Primary()) != 1 {
@@ -436,5 +436,48 @@ func TestHandling(t *testing.T) {
 	}
 	if h.By("other") != "" {
 		t.Error("By of an unknown stage")
+	}
+}
+
+func TestReach(t *testing.T) {
+	aws := secret("aws")
+	aws.Reaches = []string{"pw", "key"}
+	pw := secret("pw")
+	dsn := secret("dsn")
+	dsn.Generation = Generation{Method: MethodDerived}
+	dsn.DependsOn = []string{"pw"}
+	dsn.Rotation = Rotation{Policy: PolicyOnDemand}
+	key := secret("key")
+	key.Reaches = []string{"aws"} // a cycle
+	root := secret("root")
+	root.Reaches = []string{"aws"}
+	root.Protections = []string{"MFA: hardware key"}
+	root.Recovery = "The provider's account recovery."
+	r := NewRegistry(aws, pw, dsn, key, root)
+	if err := r.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Exposes("root"); !slices.Equal(got, []string{"aws", "key", "pw"}) {
+		t.Errorf("Exposes(root) = %v", got)
+	}
+	if got := r.Exposes("dsn"); !slices.Equal(got, []string{"pw"}) {
+		t.Errorf("Exposes(dsn) = %v", got)
+	}
+	if got := r.ExposedBy("pw"); !slices.Equal(got, []string{"aws", "dsn", "key", "root"}) {
+		t.Errorf("ExposedBy(pw) = %v", got)
+	}
+	if got := r.Exposes("pw"); got != nil {
+		t.Errorf("Exposes(pw) = %v", got)
+	}
+}
+
+func TestValidateReachAndStores(t *testing.T) {
+	c := secret("a")
+	c.Reaches = []string{"a", "nope"}
+	c.Protections = []string{" "}
+	c.Stores[0].Console = "http://x"
+	got := problemsOf(t, NewRegistry(c).Validate())
+	for _, want := range []string{"reaches names itself", `reaches names unknown credential "nope"`, "protections[0] is empty", "stores[0].console must be an absolute https URL"} {
+		wantProblem(t, got, want)
 	}
 }

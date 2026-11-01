@@ -3,6 +3,7 @@ package report
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -28,6 +29,11 @@ func fixture(t *testing.T) (*omnicredential.Registry, *omnicredential.Log, time.
 	ok := cred("b-app/prod/OK", "b-app", omnicredential.PolicyScheduled, 365)
 	overdue := cred("a-app/prod/OLD", "a-app", omnicredential.PolicyScheduled, 30)
 	overdue.Description = `</script><script>alert(1)</script> | pipe`
+	overdue.Stores[0].Install = "aws ssm put-parameter --name /x/a-app/prod/OLD"
+	overdue.Stores[0].Console = "https://console.example.com/ssm"
+	overdue.Reaches = []string{"b-app/prod/OK"}
+	overdue.Protections = []string{"MFA"}
+	overdue.Recovery = "None: regenerate."
 	planned := cred("a-app/staging/NEW", "a-app", omnicredential.PolicyOnDemand, 0)
 	planned.Status = omnicredential.StatusPlanned
 	planned.Handling = omnicredential.Handling{Generate: omnicredential.ActorSystem, Distribute: omnicredential.ActorSystem, Rotate: omnicredential.ActorSystem}
@@ -57,6 +63,13 @@ func TestBuildOrdersByUrgency(t *testing.T) {
 	want := "overdue a-app/prod/OLD,planned a-app/staging/NEW,ok b-app/prod/OK"
 	if strings.Join(got, ",") != want {
 		t.Errorf("rows = %v", got)
+	}
+	if !slices.Equal(rep.Rows[0].Exposes, []string{"b-app/prod/OK"}) || !slices.Equal(rep.Rows[2].ExposedBy, []string{"a-app/prod/OLD"}) || rep.Rows[1].Exposes == nil {
+		t.Errorf("reach: %v %v", rep.Rows[0].Exposes, rep.Rows[2].ExposedBy)
+	}
+	// 365/30 + 365/365 by hand, scheduled.
+	if h := rep.Handling; h.RotationsPerYear != 13.2 || h.ExpiringByHand != 0 {
+		t.Errorf("rotations = %v, expiring = %d", h.RotationsPerYear, h.ExpiringByHand)
 	}
 	if h := rep.Handling; h.Total != 3 || h.Manual != 2 || h.Automatic != 1 || h.ByStage[omnicredential.StageRotate][omnicredential.ActorHuman] != 2 {
 		t.Errorf("handling = %+v", rep.Handling)
@@ -159,6 +172,17 @@ func TestMarkdown(t *testing.T) {
 		"| generate | 2 | 1 |",
 		"| distribute | 0 | 3 |",
 		"- **Handling:** generate by human, distribute by system, rotate by human (automation: deploy)",
+		"Rotation by hand: about 13.2 scheduled rotations a year, and 0 credentials when their issuer's expiry comes.",
+		"## By Hand, by Place\n",
+		"### self\n",
+		"- [a-app/prod/OLD](#a-app-prod-old) (active) → aws-ssm `/x/a-app/prod/OLD`",
+		"- **Install (primary):** aws ssm put-parameter --name /x/a-app/prod/OLD",
+		"[console](https://console.example.com/ssm)",
+		"- **Reaches:** [b-app/prod/OK](#b-app-prod-ok)",
+		"- **Exposes in all:** 1 credential",
+		"- **Exposed by:** 1 credential",
+		"- **Protections:** MFA",
+		"- **Recovery:** None: regenerate.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)

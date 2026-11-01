@@ -152,6 +152,7 @@ func validateCredential(ps *problems, id string, c Credential, ids map[string]bo
 	primary := 0
 	for i, s := range c.Stores {
 		slug(ps, id, fmt.Sprintf("stores[%d].type", i), s.Type, true)
+		httpsURL(ps, id, fmt.Sprintf("stores[%d].console", i), s.Console)
 		closed(ps, id, fmt.Sprintf("stores[%d].role", i), s.Role, Roles(), true)
 		if s.Role == RolePrimary {
 			primary++
@@ -185,6 +186,19 @@ func validateCredential(ps *problems, id string, c Credential, ids map[string]bo
 			ps.add(id, "dependsOn names itself")
 		case !ids[d]:
 			ps.add(id, "dependsOn names unknown credential %q", d)
+		}
+	}
+	for _, d := range c.Reaches {
+		switch {
+		case d == c.ID:
+			ps.add(id, "reaches names itself")
+		case !ids[d]:
+			ps.add(id, "reaches names unknown credential %q", d)
+		}
+	}
+	for i, p := range c.Protections {
+		if strings.TrimSpace(p) == "" {
+			ps.add(id, "protections[%d] is empty", i)
 		}
 	}
 	if c.Generation.Method == MethodDerived && len(c.DependsOn) == 0 {

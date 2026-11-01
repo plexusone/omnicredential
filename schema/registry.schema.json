@@ -68,7 +68,8 @@
             "access-key",
             "encryption-key",
             "ssh-key",
-            "federated"
+            "federated",
+            "account"
           ]
         },
         "status": {
@@ -144,7 +145,25 @@
             "type": "string"
           },
           "type": "array",
-          "description": "DependsOn lists the IDs this credential is derived from, such as\nthe password inside a connection string."
+          "description": "DependsOn lists the IDs this credential is derived from, such as\nthe password inside a connection string. A holder of this one also\nholds those."
+        },
+        "reaches": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Reaches lists the IDs a holder of this credential can read, use or\nreplace, such as the parameters a cloud identity may read. With\nDependsOn, it gives what a leak exposes in all."
+        },
+        "protections": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Protections are what guard the credential besides its secrecy, such\nas \"MFA: hardware key\" or \"SSO only\"."
+        },
+        "recovery": {
+          "type": "string",
+          "description": "Recovery says how to regain access when the value is lost, or that\nit cannot be."
         },
         "tags": {
           "items": {
@@ -293,7 +312,8 @@
             "github",
             "google-cloud",
             "postgres",
-            "stripe"
+            "stripe",
+            "registrar"
           ]
         },
         "account": {
@@ -426,6 +446,14 @@
         "path": {
           "type": "string",
           "description": "Path is the parameter, secret, item or file name."
+        },
+        "console": {
+          "type": "string",
+          "description": "Console is the https URL where the store is managed."
+        },
+        "install": {
+          "type": "string",
+          "description": "Install says how the value gets here: the command or the steps a\nperson follows, or the system that writes it."
         },
         "note": {
           "type": "string",

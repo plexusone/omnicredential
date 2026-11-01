@@ -142,11 +142,11 @@ func TestHTMLIsSelfContainedAndEscaped(t *testing.T) {
 	if !strings.Contains(out, "By hand: <strong>2</strong> of 3 credentials need a person for at least one step (generate 2 · distribute 0 · rotate 2) · automatic: <strong>1</strong>") {
 		t.Error("handling summary missing")
 	}
-	asOf, err := AsOfFromHTML(b.Bytes())
+	asOf, err := AsOf(b.Bytes())
 	if err != nil || !asOf.Equal(now) {
-		t.Errorf("AsOfFromHTML = %v, %v", asOf, err)
+		t.Errorf("AsOf = %v, %v", asOf, err)
 	}
-	if _, err := AsOfFromHTML([]byte("<html>")); err == nil {
+	if _, err := AsOf([]byte("<html>")); err == nil {
 		t.Error("a page without a date")
 	}
 }

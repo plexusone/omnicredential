@@ -231,6 +231,16 @@ func (e *env) status() *cobra.Command {
 	return c
 }
 
+func splitList(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func joinStates(states []omnicredential.State) string {
 	parts := make([]string, len(states))
 	for i, s := range states {
@@ -266,13 +276,16 @@ func statusTable(w io.Writer, rows []report.Row, total int, now time.Time) error
 
 func (e *env) report() *cobra.Command {
 	var w when
-	var format, out, title string
+	var format, out, title, envOrder string
+	var months, remind int
 	c := &cobra.Command{
 		Use:   "report",
-		Short: "Write the HTML report, the Markdown reference or JSON",
-		Long: "report writes one of three reports:\n\n" +
+		Short: "Write the HTML report, the Markdown reference, the management plan, a calendar or JSON",
+		Long: "report writes one of five reports:\n\n" +
 			"  html      one self-contained page to search and filter, with each credential's state and history\n" +
 			"  markdown  a reference for documentation, from the registry only, so it does not change with time\n" +
+			"  plan      the management plan: summary, launch checklist, rotation calendar, protections, exposure\n" +
+			"  ics       the rotation calendar as an iCalendar file, with reminders, to import into a calendar\n" +
 			"  json      the rows with their state, for other tools",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -289,7 +302,7 @@ func (e *env) report() *cobra.Command {
 				if err := report.Markdown(&buf, title, r); err != nil {
 					return err
 				}
-			case "html", "json":
+			case "html", "json", "plan", "ics":
 				now, warn, err := w.resolve(e.opts.Now)
 				if err != nil {
 					return err
@@ -302,22 +315,31 @@ func (e *env) report() *cobra.Command {
 					return err
 				}
 				rep := report.Build(title, r, l, now, warn)
-				if format == "html" {
+				record := c.Parent().CommandPath() + " record"
+				switch format {
+				case "html":
 					err = rep.HTML(&buf)
-				} else {
+				case "plan":
+					err = rep.Plan(&buf, r, report.PlanOptions{Months: months, EnvironmentOrder: splitList(envOrder), RecordCommand: record})
+				case "ics":
+					err = rep.Calendar(&buf, report.CalendarOptions{Months: months, RemindDays: remind, RecordCommand: record})
+				default:
 					err = rep.JSON(&buf)
 				}
 				if err != nil {
 					return err
 				}
 			default:
-				return fmt.Errorf("--format %q: use html, markdown or json", format)
+				return fmt.Errorf("--format %q: use html, markdown, plan, ics or json", format)
 			}
 			return write(c, out, buf.Bytes())
 		},
 	}
 	w.flags(c)
-	c.Flags().StringVarP(&format, "format", "f", "html", "html, markdown or json")
+	c.Flags().StringVarP(&format, "format", "f", "html", "html, markdown, plan, ics or json")
+	c.Flags().IntVar(&months, "months", 12, "plan and ics: how many months ahead the calendar looks")
+	c.Flags().StringVar(&envOrder, "environment-order", "", "plan: comma-separated environments in checklist order, such as prod,staging")
+	c.Flags().IntVar(&remind, "remind-days", 0, "ics: days before each date a reminder fires (default: --warn-days; negative for none)")
 	c.Flags().StringVarP(&out, "output", "o", "", "file to write; standard output when empty")
 	c.Flags().StringVar(&title, "title", "", "the report's title")
 	return c

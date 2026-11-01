@@ -110,7 +110,7 @@ func TestLifecycle(t *testing.T) {
 func TestReports(t *testing.T) {
 	dir := t.TempDir()
 	events := filepath.Join(dir, "events.json")
-	for _, f := range []string{"html", "markdown", "json"} {
+	for _, f := range []string{"html", "markdown", "json", "plan", "ics"} {
 		path := filepath.Join(dir, "report."+f)
 		if out, err := run(t, events, "report", "--format", f, "-o", path, "--title", "Team"); err != nil {
 			t.Fatalf("%s: %v\n%s", f, err, out)
@@ -119,8 +119,11 @@ func TestReports(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Contains(data, []byte("Team")) || !bytes.Contains(data, []byte("key-a")) {
+		if !bytes.Contains(data, []byte("Team")) || f != "ics" && !bytes.Contains(data, []byte("key-a")) {
 			t.Errorf("%s report:\n%s", f, data)
+		}
+		if f == "plan" && !bytes.Contains(data, []byte("`credentials record key-a created`")) {
+			t.Errorf("the plan does not name the mounted record command:\n%s", data)
 		}
 	}
 	if _, err := run(t, events, "report", "--format", "pdf"); err == nil {

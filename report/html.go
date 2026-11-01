@@ -50,15 +50,18 @@ func (rep Report) HTML(w io.Writer) error {
 	})
 }
 
-var asOfMeta = regexp.MustCompile(`<meta name="omnicredential-as-of" content="(\d{4}-\d{2}-\d{2})">`)
+// asOfPattern finds the assessment date each time-dependent report
+// records: the HTML page's meta element, the plan's comment and the
+// calendar's property.
+var asOfPattern = regexp.MustCompile(`(?:<meta name="omnicredential-as-of" content="|<!-- omnicredential-as-of: |X-OMNICREDENTIAL-AS-OF:)(\d{4}-\d{2}-\d{2})`)
 
-// AsOfFromHTML returns the date an HTML report was assessed at. Building
-// the report again at that date and comparing tells whether a committed
-// copy is current with its registry and events.
-func AsOfFromHTML(page []byte) (time.Time, error) {
-	m := asOfMeta.FindSubmatch(page)
+// AsOf returns the date a report written by HTML, Plan or Calendar was
+// assessed at. Building the report again at that date and comparing tells
+// whether a committed copy is current with its registry and events.
+func AsOf(page []byte) (time.Time, error) {
+	m := asOfPattern.FindSubmatch(page)
 	if m == nil {
-		return time.Time{}, errors.New("report: no omnicredential-as-of date in the page")
+		return time.Time{}, errors.New("report: no omnicredential as-of date in the file")
 	}
 	return time.Parse(time.DateOnly, string(m[1]))
 }

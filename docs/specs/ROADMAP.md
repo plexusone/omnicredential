@@ -16,6 +16,8 @@
 - [x] **RMI-OMNICREDENTIAL-009** Mountable commands: validate, status, report, record, export, schema
 - [x] **RMI-OMNICREDENTIAL-010** Standalone command over JSON files
 - [x] **RMI-OMNICREDENTIAL-020** Handling: whether a person or a system generates, distributes and rotates each credential, counted in every report
+- [x] **RMI-OMNICREDENTIAL-021** Reach: what a holder can get (`reaches`, with `dependsOn`), what a leak exposes in all and what exposes each credential
+- [x] **RMI-OMNICREDENTIAL-022** Human instructions: install steps and consoles per store, accounts with protections and recovery, and a by-place checklist
 
 ## Phase 3: Observed State
 

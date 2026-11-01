@@ -36,6 +36,12 @@ credential stands.
 - **Who does what.** Each credential says whether a person or a system
   generates, distributes and rotates it, and the reports count how many
   need you by hand and how many are fully automatic.
+- **What a leak exposes.** `reaches` and `dependsOn` link credentials, so
+  each one shows everything a holder can get, directly or through others,
+  and which credentials expose it.
+- **Instructions for people.** Each store says how the value is installed
+  there and where its console is; accounts record their protections and
+  recovery; the reference lists what to create by hand, grouped by place.
 - **Lifecycle state.** Each credential is `ok`, `due`, `overdue`,
   `expiring`, `expired`, `unknown-expiry`, `unrecorded`, `planned` or
   `retired`, from its rotation policy and its events.

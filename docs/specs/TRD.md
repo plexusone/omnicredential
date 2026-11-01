@@ -32,13 +32,16 @@ both from one function.
 | `issuer` | object | `type` (slug), `account`, `console` (URL) |
 | `generation` | object | `method` (enum), `spec`, `where`, `command`, `steps` |
 | `entitlements` | list | `resource`, `access`, `note` |
-| `stores` | list | `type` (slug), `role` (enum), `account`, `path`, `note` |
+| `stores` | list | `type` (slug), `role` (enum), `account`, `path`, `console` (URL), `install` (how the value gets there), `note` |
 | `consumers` | list | `system`, `component`, `via`, `note` |
 | `rotation` | object | `policy` (enum), `intervalDays`, `procedure`, `impact` |
 | `handling` | object | `generate`, `distribute`, `rotate` (each `human` or `system`), `automation` |
 | `revocation` | string | How to revoke it quickly |
 | `exposure` | string | What a holder of the value can do |
 | `dependsOn` | list | IDs this one is derived from, such as a DSN from a password |
+| `reaches` | list | IDs a holder of this one can read, use or replace |
+| `protections` | list | What guards it besides secrecy, such as MFA |
+| `recovery` | string | How to regain access when it is lost, or that it cannot be |
 | `tags` | list | Free labels |
 | `links` | list | `title`, `url` |
 
@@ -47,9 +50,10 @@ Well-known values (open sets, validated as lowercase slugs):
 - **kind:** `random-secret`, `password`, `private-key`, `certificate`,
   `connection-string`, `oauth-client`, `api-token`,
   `personal-access-token`, `access-key`, `encryption-key`, `ssh-key`,
-  `federated`.
+  `federated`, `account` (a person's login that controls other
+  credentials).
 - **issuer type:** `self`, `aws`, `cloudflare`, `github`, `google-cloud`,
-  `postgres`, `stripe`.
+  `postgres`, `stripe`, `registrar`.
 - **store type:** `aws-ssm`, `aws-secrets-manager`, `aws-kms`,
   `github-actions`, `password-manager`, `pulumi-config`, `host-file`,
   `local-file`, `none`.
@@ -75,7 +79,7 @@ Closed sets:
 - At least one store with role `primary`, unless the method is
   `federated`.
 - `scheduled` requires `intervalDays` > 0; other policies forbid it.
-- `dependsOn` names existing IDs and never the entry itself.
+- `dependsOn` and `reaches` name existing IDs and never the entry itself.
 - Link and console URLs are absolute `https` URLs.
 - All problems are reported together, each with the entry's ID.
 
@@ -96,6 +100,13 @@ Events name known IDs. `Append` keeps the log sorted by time, then
 credential, then type, so saving is stable. A credential's record is the
 latest of each: created, rotated (or created), expiry, verified, revoked.
 A `created` or `rotated` event without `expires` clears the expiry.
+
+## Reach
+
+`Exposes(id)` follows `dependsOn` and `reaches` from a credential, and
+their links in turn, to every credential a holder can get: what a leak
+exposes in all. `ExposedBy(id)` follows them backwards: whose leak
+exposes this one. Cycles are allowed.
 
 ## State
 
@@ -121,7 +132,10 @@ The default warning window is 30 days.
 All three are built from the same rows: each credential, its record,
 its assessment and its events. Each counts the credentials that need a
 person for at least one stage, those handled entirely by systems, and
-each stage's human and system counts.
+each stage's human and system counts, the scheduled rotations a person
+does in a year (the sum of 365 / interval), and how many a person rotates
+at the issuer's expiry. Each row lists what it exposes and what exposes
+it.
 
 - **HTML:** one file with no external requests. It holds the rows as
   JSON in a `<script type="application/json">` element, written through
@@ -135,8 +149,10 @@ each stage's human and system counts.
   day (UTC) and records that date in a `meta` element, so a committed
   copy can be rebuilt from the same registry, events and date and
   compared byte for byte.
-- **Markdown:** a section per system with a table and the details of
-  each entry. It uses only the registry, never the time or the events,
+- **Markdown:** a "by hand, by place" checklist of the credentials a
+  person makes, grouped by issuer and account, each with its store; then
+  a section per system with a table and the details of each entry,
+  including how to install it in each store. It uses only the registry, never the time or the events,
   so a test can check a committed copy is current.
 - **JSON:** the rows with their assessments, for other tools.
 

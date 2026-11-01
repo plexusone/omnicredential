@@ -276,7 +276,7 @@ func statusTable(w io.Writer, rows []report.Row, total int, now time.Time) error
 
 func (e *env) report() *cobra.Command {
 	var w when
-	var format, out, title, envOrder string
+	var format, out, title, envOrder, sysOrder string
 	var months, remind int
 	c := &cobra.Command{
 		Use:   "report",
@@ -320,7 +320,7 @@ func (e *env) report() *cobra.Command {
 				case "html":
 					err = rep.HTML(&buf)
 				case "plan":
-					err = rep.Plan(&buf, r, report.PlanOptions{Months: months, EnvironmentOrder: splitList(envOrder), RecordCommand: record})
+					err = rep.Plan(&buf, r, report.PlanOptions{Months: months, EnvironmentOrder: splitList(envOrder), SystemOrder: splitList(sysOrder), RecordCommand: record})
 				case "ics":
 					err = rep.Calendar(&buf, report.CalendarOptions{Months: months, RemindDays: remind, RecordCommand: record})
 				default:
@@ -339,6 +339,7 @@ func (e *env) report() *cobra.Command {
 	c.Flags().StringVarP(&format, "format", "f", "html", "html, markdown, plan, ics or json")
 	c.Flags().IntVar(&months, "months", 12, "plan and ics: how many months ahead the calendar looks")
 	c.Flags().StringVar(&envOrder, "environment-order", "", "plan: comma-separated environments in checklist order, such as prod,staging")
+	c.Flags().StringVar(&sysOrder, "system-order", "", "plan: comma-separated systems in checklist order within an environment, such as shared infrastructure first")
 	c.Flags().IntVar(&remind, "remind-days", 0, "ics: days before each date a reminder fires (default: --warn-days; negative for none)")
 	c.Flags().StringVarP(&out, "output", "o", "", "file to write; standard output when empty")
 	c.Flags().StringVar(&title, "title", "", "the report's title")

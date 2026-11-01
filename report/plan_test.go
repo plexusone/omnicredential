@@ -105,6 +105,13 @@ func TestPlan(t *testing.T) {
 	if strings.Index(out, "**a-app/staging/PW**") > strings.Index(out, "**a-app/staging/DSN**") {
 		t.Error("a credential is listed before what it is built from")
 	}
+	var ordered bytes.Buffer
+	if err := rep.Plan(&ordered, r, PlanOptions{EnvironmentOrder: []string{"staging", "prod"}, SystemOrder: []string{"b-app", "a-app"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(ordered.String(), "### 2. a-app · staging") {
+		t.Errorf("environment order not followed:\n%s", ordered.String())
+	}
 	asOf, err := AsOf(b.Bytes())
 	if err != nil || !asOf.Equal(rep.AsOf) {
 		t.Errorf("AsOf = %v, %v", asOf, err)

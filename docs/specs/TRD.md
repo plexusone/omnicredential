@@ -157,8 +157,9 @@ it.
 - **Plan:** the management plan in Markdown: a summary (counts by
   status, system and environment, state and who does each stage); the
   launch checklist of what a person creates (planned, or active with
-  nothing recorded), accounts first, then each system's environments in
-  a given order, each credential after those it is built from, with
+  nothing recorded), accounts first, then those of no one environment,
+  then each environment in a given order and its systems in a given
+  order, each credential after those it is built from, with
   where to create it, the command, how to install it in each store and
   the command that records it; the rotation calendar; the accounts'
   protections, ticked by `verified` events; and the credentials whose
@@ -181,7 +182,7 @@ records its date (a `meta` element, a comment, an `X-` property), which
 omnicredential validate
 omnicredential status   [--fail-on expired,overdue] [filters]
 omnicredential report   --format html|markdown|plan|ics|json [-o file] [--as-of date]
-                        [--months 12] [--environment-order prod,staging] [--remind-days n]
+                        [--months 12] [--environment-order prod,staging] [--system-order a,b] [--remind-days n]
 omnicredential record   <id> <created|rotated|expires|verified|revoked> [--at] [--expires] [--by] [--note]
 omnicredential export   [-o file]
 omnicredential schema   registry|events [-o file]

@@ -18,8 +18,12 @@ type PlanOptions struct {
 	// Months is how far ahead the rotation calendar looks; 12 when zero.
 	Months int
 	// EnvironmentOrder puts environments in this order in the launch
-	// checklist, such as prod before staging; others follow by name.
+	// checklist, such as prod before staging; others follow by name. A
+	// credential without an environment comes before them.
 	EnvironmentOrder []string
+	// SystemOrder puts systems in this order within an environment, such
+	// as shared infrastructure first; others follow by name.
+	SystemOrder []string
 	// RecordCommand is the command that records an event, such as
 	// "omnicredential record"; the plan appends the ID and the event.
 	RecordCommand string
@@ -180,8 +184,15 @@ func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions)
 		}
 		g.rows = append(g.rows, row)
 	}
+	sysRank := func(system string) int {
+		if i := slices.Index(o.SystemOrder, system); i >= 0 {
+			return i
+		}
+		return len(o.SystemOrder)
+	}
 	slices.SortStableFunc(groups, func(a, b *group) int {
-		return cmp.Or(cmp.Compare(a.rank, b.rank), cmp.Compare(envRank(a.env), envRank(b.env)), strings.Compare(a.system, b.system), strings.Compare(a.env, b.env))
+		return cmp.Or(cmp.Compare(a.rank, b.rank), cmp.Compare(envRank(a.env), envRank(b.env)),
+			cmp.Compare(sysRank(a.system), sysRank(b.system)), strings.Compare(a.system, b.system), strings.Compare(a.env, b.env))
 	})
 
 	m.line("## Launch Checklist")
@@ -194,7 +205,7 @@ func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions)
 	if auto > 0 {
 		intro += fmt.Sprintf(" Systems create %s more.", credentials(auto))
 	}
-	m.line(intro + " Accounts come first, then each system's environments; within a group, a credential follows those it is built from. Record each one once it exists, so its rotation dates start.")
+	m.line(intro + " Accounts come first, then the credentials of no one environment, then each environment in turn; within a group, a credential follows those it is built from. Record each one once it exists, so its rotation dates start.")
 	m.blank()
 	for i, g := range groups {
 		m.linef("### %d. %s", i+1, g.title)

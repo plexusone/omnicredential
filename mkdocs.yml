@@ -43,8 +43,8 @@ markdown_extensions:
   - toc:
       permalink: true
 
-# docs/guides/ holds the user guides and docs/specs/ the design
-# documents.
+# docs/guides/ holds the user guides, docs/specs/ the design documents and
+# docs/releases/ the release notes.
 nav:
   - Home: index.md
   - Guides:
@@ -59,6 +59,9 @@ nav:
       - Technical Requirements: specs/TRD.md
       - Plan: specs/PLAN.md
       - Roadmap: specs/ROADMAP.md
+  - Releases:
+      - Changelog: releases/changelog.md
+      - v0.1.0: releases/v0.1.0.md
 
 extra:
   social:

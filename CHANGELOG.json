@@ -1,0 +1,114 @@
+{
+  "irVersion": "1.0",
+  "project": "systemspec-credential",
+  "repository": "https://github.com/plexusone/systemspec-credential",
+  "versioning": "semver",
+  "commitConvention": "conventional",
+  "maintainers": [
+    "grokify",
+    "johncwang@gmail.com"
+  ],
+  "releases": [
+    {
+      "version": "v0.1.0",
+      "date": "2026-11-01",
+      "highlights": [
+        {
+          "description": "A registry of credentials without their values: what each is for, how and where it is made, what it may do, where it is stored, who uses it and how it rotates, in Go or JSON, validated by one set of rules and described by generated JSON Schemas"
+        },
+        {
+          "description": "An event log that turns into each credential's work progress and next step (`to-create`, `to-record`, `to-deploy`, `deployed`) and its lifecycle state (`ok`, `due`, `overdue`, `expiring`, `expired` and more)"
+        },
+        {
+          "description": "Reports for people: a self-contained HTML report with filters, a management plan with the launch checklist and rotation calendar, an iCalendar export and a Markdown reference, plus a `status` gate for deploy scripts"
+        }
+      ],
+      "added": [
+        {
+          "description": "`credspec` package: the `Credential` entry with its issuer, generation, entitlements, stores, consumers, rotation, revocation and exposure; well-known kinds, issuers and store types as open slugs, and closed sets for status, sensitivity, method, store role and rotation policy; `Registry.Validate` reports every problem with its entry's ID",
+          "commit": "a699f14",
+          "rmis": ["RMI-OMNICREDENTIAL-001", "RMI-OMNICREDENTIAL-002"]
+        },
+        {
+          "description": "Event log with `created`, `rotated`, `expires`, `deployed`, `verified` and `revoked` events, kept sorted and validated against the registry; `Assess` gives each credential's lifecycle state, reason and next date within a warning window",
+          "commit": "3d0beca",
+          "rmis": ["RMI-OMNICREDENTIAL-003", "RMI-OMNICREDENTIAL-004"]
+        },
+        {
+          "description": "`schema` package: registry and event log JSON Schemas generated from the Go types with their documentation comments, and embedded; JSON files refuse unknown fields",
+          "commit": "d463d4e",
+          "rmis": ["RMI-OMNICREDENTIAL-005"]
+        },
+        {
+          "description": "`report` package: JSON report rows, a self-contained HTML report with search, filters, sorting, details, shareable URL state and CSV download, and a time-independent Markdown reference",
+          "commit": "dcf9f73",
+          "rmis": ["RMI-OMNICREDENTIAL-006", "RMI-OMNICREDENTIAL-007", "RMI-OMNICREDENTIAL-008"]
+        },
+        {
+          "description": "`cli` package and `credspec` command: `validate`, `status`, `report`, `record`, `export` and `schema`, mountable over a registry built in Go with `cli.New`",
+          "commit": "cfb4460",
+          "rmis": ["RMI-OMNICREDENTIAL-009", "RMI-OMNICREDENTIAL-010"]
+        },
+        {
+          "description": "`handling`: whether a person or a system generates, distributes and rotates each credential, with the counts by stage and the rotations a person does each year in every report",
+          "commit": "8bef956",
+          "rmis": ["RMI-OMNICREDENTIAL-020"]
+        },
+        {
+          "description": "`reaches` and `dependsOn` with `Exposes` and `ExposedBy`, so each credential shows what its leak exposes and what exposes it; per-store `install` steps and consoles; `account` entries with `protections` and `recovery`; a by-place checklist of what a person creates",
+          "commit": "60b0e6b",
+          "rmis": ["RMI-OMNICREDENTIAL-021", "RMI-OMNICREDENTIAL-022"]
+        },
+        {
+          "description": "Management plan in Markdown (summary, launch checklist in dependency order, rotation calendar, account protections, exposure) and an RFC 5545 calendar of rotations and expiries with reminders and stable event IDs",
+          "commit": "c348309",
+          "rmis": ["RMI-OMNICREDENTIAL-023", "RMI-OMNICREDENTIAL-024"]
+        },
+        {
+          "description": "`--environment-order` and `--system-order` set the order of the plan's launch checklist",
+          "commit": "e878b62",
+          "rmis": ["RMI-OMNICREDENTIAL-023"]
+        },
+        {
+          "description": "Work progress from `created`, `rotated` and `deployed` events, with each credential's next step in every report; `status --progress` and `--manual`; `record` accepts `*` patterns",
+          "commit": "d242e08",
+          "rmis": ["RMI-OMNICREDENTIAL-025"]
+        },
+        {
+          "description": "`to-record` progress separates credentials that exist but have nothing recorded from those still to create; the HTML report's work chips, including one for what a person creates, count within the other filters",
+          "commit": "f8eedd6",
+          "rmis": ["RMI-OMNICREDENTIAL-025"]
+        },
+        {
+          "description": "Reports carry their as-of date, read back by `report.AsOf`, so a committed copy can be rebuilt and compared"
+        }
+      ],
+      "tests": [
+        {
+          "description": "Validation, the event log, every state and its boundaries, progress, reach, each report including HTML escaping, the schemas' currency and the commands; no network",
+          "commit": "8f694c7"
+        }
+      ],
+      "documentation": [
+        {
+          "description": "MkDocs site with guides to getting started, the registry, events and states, reports and use from Go; README; PRD, TRD, plan and roadmap; release notes for v0.1.0"
+        }
+      ],
+      "infrastructure": [
+        {
+          "description": "Go CI, lint and CodeQL workflows on Linux, macOS and Windows; text files checked out with LF line endings",
+          "commit": "fb45e8a"
+        },
+        {
+          "description": "Files are written atomically, and modes are set only where the platform enforces them, through oscompat, so the same code is correct on Windows",
+          "commit": "5e2702d"
+        }
+      ],
+      "dependencies": [
+        {
+          "description": "`github.com/grokify/oscompat` v0.12.0, `github.com/invopop/jsonschema` v0.14.0 and `github.com/spf13/cobra` v1.10.2"
+        }
+      ]
+    }
+  ]
+}

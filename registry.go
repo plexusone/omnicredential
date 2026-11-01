@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -304,31 +303,10 @@ func decodeStrict(data []byte, v any) error {
 	return nil
 }
 
-// writeFile writes data to path through a temporary file in the same
-// directory, so a reader never sees a partial file, and flushes the
-// directory so the rename survives a crash where the platform allows.
+// writeFile replaces path atomically: a reader never sees a partial
+// file. The file holds no values and is meant to be read and committed.
 func writeFile(path string, data []byte) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".omnicredential-*")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		return errors.Join(err, tmp.Close(), os.Remove(name))
-	}
-	if err := tmp.Close(); err != nil {
-		return errors.Join(err, os.Remove(name))
-	}
-	// The file holds no values and is meant to be read and committed. A
-	// mode is not enforced on every platform, and there a failure to set
-	// it cannot matter.
-	if err := os.Chmod(name, oscfs.DefaultFilePerm); err != nil && oscfs.PermissionsEnforced() {
-		return errors.Join(err, os.Remove(name))
-	}
-	if err := os.Rename(name, path); err != nil {
-		return errors.Join(err, os.Remove(name))
-	}
-	return oscfs.SyncDir(filepath.Dir(path))
+	return oscfs.WriteFileAtomic(path, data, oscfs.DefaultFilePerm)
 }
 
 // Save writes the registry to path as indented JSON.

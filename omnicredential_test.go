@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	oscfs "github.com/grokify/oscompat/fs"
 )
 
 func secret(id string) Credential {
@@ -177,7 +179,8 @@ func TestRegistryRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi.Mode().Perm() != 0o644 {
+	// Modes are not enforced on every platform (Windows).
+	if oscfs.PermissionsEnforced() && fi.Mode().Perm() != oscfs.DefaultFilePerm {
 		t.Errorf("mode = %v", fi.Mode().Perm())
 	}
 }

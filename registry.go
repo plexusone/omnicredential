@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	oscfs "github.com/grokify/oscompat/fs"
 )
 
 // Registry is a list of credentials.
@@ -303,7 +305,8 @@ func decodeStrict(data []byte, v any) error {
 }
 
 // writeFile writes data to path through a temporary file in the same
-// directory, so a reader never sees a partial file.
+// directory, so a reader never sees a partial file, and flushes the
+// directory so the rename survives a crash where the platform allows.
 func writeFile(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".omnicredential-*")
 	if err != nil {
@@ -316,13 +319,16 @@ func writeFile(path string, data []byte) error {
 	if err := tmp.Close(); err != nil {
 		return errors.Join(err, os.Remove(name))
 	}
-	if err := os.Chmod(name, 0o644); err != nil { //nolint:gosec // G302: the file holds no values and is meant to be read and committed.
+	// The file holds no values and is meant to be read and committed. A
+	// mode is not enforced on every platform, and there a failure to set
+	// it cannot matter.
+	if err := os.Chmod(name, oscfs.DefaultFilePerm); err != nil && oscfs.PermissionsEnforced() {
 		return errors.Join(err, os.Remove(name))
 	}
 	if err := os.Rename(name, path); err != nil {
 		return errors.Join(err, os.Remove(name))
 	}
-	return nil
+	return oscfs.SyncDir(filepath.Dir(path))
 }
 
 // Save writes the registry to path as indented JSON.

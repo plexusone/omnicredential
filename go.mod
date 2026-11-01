@@ -3,6 +3,7 @@ module github.com/plexusone/omnicredential
 go 1.26.0
 
 require (
+	github.com/grokify/oscompat v0.11.0
 	github.com/invopop/jsonschema v0.14.0
 	github.com/spf13/cobra v1.10.2
 )

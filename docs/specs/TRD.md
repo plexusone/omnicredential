@@ -93,6 +93,7 @@ optional `expires`, `by` and `note`.
 | `created` | The first value exists | Optional |
 | `rotated` | A new value replaced the old one | Optional |
 | `expires` | The issuer set or changed the expiry | Required |
+| `deployed` | The value is in place in its `rendered` stores, where consumers read it | Not allowed |
 | `verified` | Someone confirmed the value is present and works | Not allowed |
 | `revoked` | The value no longer works | Not allowed |
 
@@ -100,6 +101,24 @@ Events name known IDs. `Append` keeps the log sorted by time, then
 credential, then type, so saving is stable. A credential's record is the
 latest of each: created, rotated (or created), expiry, verified, revoked.
 A `created` or `rotated` event without `expires` clears the expiry.
+
+## Progress
+
+Separate from the state, `ProgressOf` says where the work on a
+credential stands:
+
+| Progress | When |
+|---|---|
+| `to-create` | No `created` or `rotated` event (a federated one: no `deployed` event) |
+| `to-deploy` | It has a `rendered` store, and no `deployed` event since it last changed |
+| `deployed` | Created, and deployed since, or with no `rendered` store |
+| `retired` | Status `retired`, or a `revoked` event |
+
+Each report row carries its progress and a next step: where to create
+it, the command and how to install it in each store; or how each
+rendered store is written; then the event to record. A planned
+credential with a `created` event is assessed like an active one, so
+credentials can be made ahead of their launch.
 
 ## Reach
 
@@ -180,10 +199,10 @@ records its date (a `meta` element, a comment, an `X-` property), which
 
 ```
 omnicredential validate
-omnicredential status   [--fail-on expired,overdue] [filters]
+omnicredential status   [--fail-on expired,overdue] [--progress to-create,to-deploy] [--manual] [filters]
 omnicredential report   --format html|markdown|plan|ics|json [-o file] [--as-of date]
                         [--months 12] [--environment-order prod,staging] [--system-order a,b] [--remind-days n]
-omnicredential record   <id> <created|rotated|expires|verified|revoked> [--at] [--expires] [--by] [--note]
+omnicredential record   <id-or-pattern> <created|rotated|expires|deployed|verified|revoked> [--at] [--expires] [--by] [--note]
 omnicredential export   [-o file]
 omnicredential schema   registry|events [-o file]
 ```

@@ -42,6 +42,10 @@ credential stands.
 - **Instructions for people.** Each store says how the value is installed
   there and where its console is; accounts record their protections and
   recovery; the reference lists what to create by hand, grouped by place.
+- **What to work on.** Each credential is `to-create`, `to-deploy` or
+  `deployed`, from `created`, `rotated` and `deployed` events, with its
+  next step: where to create it and how to install it, or how it is
+  deployed. The HTML report opens sorted by it.
 - **Lifecycle state.** Each credential is `ok`, `due`, `overdue`,
   `expiring`, `expired`, `unknown-expiry`, `unrecorded`, `planned` or
   `retired`, from its rotation policy and its events.
@@ -83,7 +87,7 @@ omnicredential report   --format html -o credentials.html --registry credentials
 | `validate` | Checks the registry and the event log |
 | `status` | Lists credentials needing attention; fails on `--fail-on` states (default `expired,overdue`); `--manual` for only those with a step by hand |
 | `report` | Writes `--format html`, `markdown`, `plan`, `ics` or `json` |
-| `record <id> <type>` | Adds a `created`, `rotated`, `expires`, `verified` or `revoked` event |
+| `record <id-or-pattern> <type>` | Adds a `created`, `rotated`, `expires`, `deployed`, `verified` or `revoked` event; `'app/prod/*'` records every match |
 | `export` | Writes the registry as JSON |
 | `schema <registry\|events>` | Writes a JSON Schema |
 

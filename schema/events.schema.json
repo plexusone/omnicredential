@@ -15,6 +15,7 @@
             "created",
             "rotated",
             "expires",
+            "deployed",
             "verified",
             "revoked"
           ],

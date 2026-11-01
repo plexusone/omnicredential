@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/plexusone/omnicredential"
@@ -24,6 +25,10 @@ type Row struct {
 	Exposes []string `json:"exposes"`
 	// ExposedBy are the credentials whose holders can reach this one.
 	ExposedBy []string `json:"exposedBy"`
+	// Progress is where the work stands: to create, to deploy, deployed.
+	Progress omnicredential.Progress `json:"progress"`
+	// NextStep says what to do next, when there is something to do.
+	NextStep string `json:"nextStep,omitempty"`
 }
 
 // Report is every credential's row at a point in time.
@@ -32,8 +37,10 @@ type Report struct {
 	AsOf     time.Time                    `json:"asOf"`
 	WarnDays int                          `json:"warnDays"`
 	Counts   map[omnicredential.State]int `json:"counts"`
-	Handling HandlingSummary              `json:"handling"`
-	Rows     []Row                        `json:"rows"`
+	// Work counts the credentials at each progress.
+	Work     map[omnicredential.Progress]int `json:"work"`
+	Handling HandlingSummary                 `json:"handling"`
+	Rows     []Row                           `json:"rows"`
 }
 
 // HandlingSummary counts who does each lifecycle step, over the
@@ -113,6 +120,7 @@ func Build(title string, r *omnicredential.Registry, l *omnicredential.Log, now 
 		AsOf:     now.UTC(),
 		WarnDays: int(warn / (24 * time.Hour)),
 		Counts:   map[omnicredential.State]int{},
+		Work:     map[omnicredential.Progress]int{},
 		Rows:     make([]Row, 0, len(r.Credentials)),
 	}
 	for _, c := range r.Credentials {
@@ -122,9 +130,12 @@ func Build(title string, r *omnicredential.Registry, l *omnicredential.Log, now 
 		if h == nil {
 			h = []omnicredential.Event{}
 		}
+		p := omnicredential.ProgressOf(c, rec)
 		rep.Rows = append(rep.Rows, Row{Credential: c, Record: rec, Assessment: a, History: h,
-			Exposes: nonNil(r.Exposes(c.ID)), ExposedBy: nonNil(r.ExposedBy(c.ID))})
+			Exposes: nonNil(r.Exposes(c.ID)), ExposedBy: nonNil(r.ExposedBy(c.ID)),
+			Progress: p, NextStep: NextStep(c, p)})
 		rep.Counts[a.State]++
+		rep.Work[p]++
 	}
 	rep.Handling = Summarize(r.Credentials)
 	order := Urgency()
@@ -154,6 +165,58 @@ func (rep Report) JSON(w io.Writer) error {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	return enc.Encode(rep)
+}
+
+// NextStep says what to do next for a credential at a progress: where to
+// create it and where to install it, or how it is deployed. It is empty
+// when nothing is to do.
+func NextStep(c omnicredential.Credential, p omnicredential.Progress) string {
+	switch p {
+	case omnicredential.ProgressToCreate:
+		var parts []string
+		if c.Status == omnicredential.StatusActive {
+			parts = append(parts, "It exists but nothing is recorded: record it as created, with its date.")
+		}
+		where := strings.Join(nonEmpty(c.Generation.Where, c.Issuer.Console), ", ")
+		create := "Create it"
+		if where != "" {
+			create += " in " + where
+		}
+		if c.Generation.Command != "" {
+			create += " with: " + c.Generation.Command
+		} else if len(c.Generation.Steps) > 0 {
+			create += " following its steps"
+		}
+		if c.Generation.Method == omnicredential.MethodDerived {
+			create = "Build it from " + strings.Join(c.DependsOn, ", ")
+		}
+		if c.Status != omnicredential.StatusActive {
+			parts = append(parts, create+".")
+		}
+		for _, s := range c.Stores {
+			if s.Role != omnicredential.RoleRendered && s.Install != "" && c.Status != omnicredential.StatusActive {
+				parts = append(parts, "Install in "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+s.Install)
+			}
+		}
+		if c.Status != omnicredential.StatusActive {
+			parts = append(parts, "Then record it as created.")
+		}
+		return strings.Join(parts, " ")
+	case omnicredential.ProgressToDeploy:
+		var parts []string
+		for _, s := range c.Stores {
+			if s.Role == omnicredential.RoleRendered {
+				how := s.Install
+				if how == "" {
+					how = "deploy it there"
+				}
+				parts = append(parts, "Deploy to "+strings.Join(nonEmpty(s.Type, s.Path), " ")+": "+how)
+			}
+		}
+		parts = append(parts, "Then record it as deployed.")
+		return strings.Join(parts, " ")
+	}
+	return ""
 }
 
 func nonNil(s []string) []string {

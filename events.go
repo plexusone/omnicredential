@@ -19,6 +19,9 @@ const (
 	EventRotated EventType = "rotated"
 	// EventExpires is the issuer setting or changing the expiry.
 	EventExpires EventType = "expires"
+	// EventDeployed is the value put in place where its consumers read
+	// it: every store with role rendered, such as a server's files.
+	EventDeployed EventType = "deployed"
 	// EventVerified is someone confirming the value is present and works.
 	EventVerified EventType = "verified"
 	// EventRevoked is the value no longer working.
@@ -27,7 +30,7 @@ const (
 
 // EventTypes lists every EventType.
 func EventTypes() []EventType {
-	return []EventType{EventCreated, EventRotated, EventExpires, EventVerified, EventRevoked}
+	return []EventType{EventCreated, EventRotated, EventExpires, EventDeployed, EventVerified, EventRevoked}
 }
 
 // Event is one thing that happened to a credential.
@@ -122,7 +125,7 @@ func validateEvent(ps *problems, where string, e Event, r *Registry) {
 		if e.Expires == nil {
 			ps.add(where, "an expires event needs expires")
 		}
-	case EventVerified, EventRevoked:
+	case EventDeployed, EventVerified, EventRevoked:
 		if e.Expires != nil {
 			ps.add(where, "a %s event has no expires", e.Type)
 		}
@@ -135,6 +138,7 @@ type Record struct {
 	Created  *time.Time `json:"created,omitempty"`
 	Rotated  *time.Time `json:"rotated,omitempty"`
 	Expires  *time.Time `json:"expires,omitempty"`
+	Deployed *time.Time `json:"deployed,omitempty"`
 	Verified *time.Time `json:"verified,omitempty"`
 	Revoked  *time.Time `json:"revoked,omitempty"`
 }
@@ -165,6 +169,8 @@ func (l *Log) Record(id string) Record {
 			rec.Expires = e.Expires
 		case EventExpires:
 			rec.Expires = e.Expires
+		case EventDeployed:
+			rec.Deployed = &at
 		case EventVerified:
 			rec.Verified = &at
 		case EventRevoked:

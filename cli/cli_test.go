@@ -98,11 +98,25 @@ func TestLifecycle(t *testing.T) {
 		t.Errorf("status after rotation: %v\n%s", err, out)
 	}
 
+	// A pattern records every match; nothing matching is an error.
+	if out, err = run(t, events, "record", "key-*", "deployed", "--at", "2026-05-31T11:00:00Z"); err != nil || !strings.Contains(out, "2 event(s)") {
+		t.Errorf("record a pattern: %v\n%s", err, out)
+	}
+	if _, err = run(t, events, "record", "nope-*", "deployed"); err == nil {
+		t.Error("a pattern matching nothing was accepted")
+	}
+	if out, err = run(t, events, "status", "--progress", "deployed", "--fail-on", ""); err != nil || strings.Count(out, "deployed ") != 2 {
+		t.Errorf("status --progress: %v\n%s", err, out)
+	}
+	if _, err = run(t, events, "status", "--progress", "done"); err == nil {
+		t.Error("an unknown progress was accepted")
+	}
+
 	l, err := omnicredential.LoadLog(events, registry())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Events) != 3 || l.Events[0].By != "ops" || !l.Events[1].At.Equal(time.Date(2026, 5, 31, 10, 0, 0, 0, time.UTC)) {
+	if len(l.Events) != 5 || l.Events[0].By != "ops" || !l.Events[1].At.Equal(time.Date(2026, 5, 31, 10, 0, 0, 0, time.UTC)) {
 		t.Errorf("events = %+v", l.Events)
 	}
 }

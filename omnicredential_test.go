@@ -404,7 +404,7 @@ func TestAssess(t *testing.T) {
 }
 
 func TestListsAreComplete(t *testing.T) {
-	if len(States()) != 9 || len(EventTypes()) != 5 || len(Kinds()) != 13 || len(StoreTypes()) != 9 || len(Issuers()) != 8 {
+	if len(States()) != 9 || len(EventTypes()) != 6 || len(Kinds()) != 13 || len(StoreTypes()) != 9 || len(Issuers()) != 8 {
 		t.Error("a list changed size; update the documentation and the schema")
 	}
 	if len(NewRegistry(secret("a")).Credentials[0].Primary()) != 1 {
@@ -479,5 +479,65 @@ func TestValidateReachAndStores(t *testing.T) {
 	got := problemsOf(t, NewRegistry(c).Validate())
 	for _, want := range []string{"reaches names itself", `reaches names unknown credential "nope"`, "protections[0] is empty", "stores[0].console must be an absolute https URL"} {
 		wantProblem(t, got, want)
+	}
+}
+
+func TestProgress(t *testing.T) {
+	c := secret("a")
+	c.Stores = append(c.Stores, Store{Type: StoreHostFile, Role: RoleRendered, Path: "/etc/a/env"})
+	noRender := secret("b")
+	fed := secret("c")
+	fed.Generation = Generation{Method: MethodFederated}
+	fed.Stores = []Store{{Type: StoreNone, Role: RoleRendered}}
+	retired := secret("d")
+	retired.Status = StatusRetired
+	at := func(s string) *time.Time { return ptr(date(s)) }
+	cases := []struct {
+		name string
+		c    Credential
+		rec  Record
+		want Progress
+	}{
+		{"nothing recorded", c, Record{}, ProgressToCreate},
+		{"created, not deployed", c, Record{Created: at("2026-01-01")}, ProgressToDeploy},
+		{"deployed", c, Record{Created: at("2026-01-01"), Deployed: at("2026-01-02")}, ProgressDeployed},
+		{"rotated after deploy", c, Record{Created: at("2026-01-01"), Deployed: at("2026-01-02"), Rotated: at("2026-03-01")}, ProgressToDeploy},
+		{"no rendered store", noRender, Record{Created: at("2026-01-01")}, ProgressDeployed},
+		{"federated, not deployed", fed, Record{}, ProgressToCreate},
+		{"federated, deployed", fed, Record{Deployed: at("2026-01-01")}, ProgressDeployed},
+		{"retired", retired, Record{Created: at("2026-01-01")}, ProgressRetired},
+		{"revoked", c, Record{Created: at("2026-01-01"), Revoked: at("2026-02-01")}, ProgressRetired},
+	}
+	for _, tc := range cases {
+		if got := ProgressOf(tc.c, tc.rec); got != tc.want {
+			t.Errorf("%s: %s, want %s", tc.name, got, tc.want)
+		}
+	}
+	if len(Progresses()) != 4 {
+		t.Error("Progresses")
+	}
+}
+
+// A planned credential created ahead of its launch is assessed like an
+// active one.
+func TestPlannedButCreated(t *testing.T) {
+	c := secret("a")
+	c.Status = StatusPlanned
+	a := Assess(c, Record{Created: ptr(date("2026-05-01"))}, date("2026-06-01"), DefaultWarn)
+	if a.State != StateOK {
+		t.Errorf("state = %s", a.State)
+	}
+}
+
+func TestDeployedEventHasNoExpiry(t *testing.T) {
+	r := NewRegistry(secret("a"))
+	err := NewLog().Append(r, Event{Credential: "a", Type: EventDeployed, At: date("2026-01-01"), Expires: ptr(date("2027-01-01"))})
+	wantProblem(t, problemsOf(t, err), "a deployed event has no expires")
+	l := NewLog()
+	if err := l.Append(r, Event{Credential: "a", Type: EventDeployed, At: date("2026-01-01")}); err != nil {
+		t.Fatal(err)
+	}
+	if rec := l.Record("a"); rec.Deployed == nil {
+		t.Error("deployed not recorded")
 	}
 }

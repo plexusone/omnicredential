@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -166,7 +167,7 @@ func parseStates(s string) ([]omnicredential.State, error) {
 
 func (e *env) status() *cobra.Command {
 	var w when
-	var failOn, states, system, environment string
+	var failOn, states, system, environment, progress string
 	var all, manual bool
 	c := &cobra.Command{
 		Use:   "status",
@@ -187,6 +188,12 @@ func (e *env) status() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("--state: %w", err)
 			}
+			work := splitList(progress)
+			for _, p := range work {
+				if !slices.Contains(omnicredential.Progresses(), omnicredential.Progress(p)) {
+					return fmt.Errorf("--progress: unknown %q; use %v", p, omnicredential.Progresses())
+				}
+			}
 			r, l, err := e.load()
 			if err != nil {
 				return err
@@ -200,7 +207,8 @@ func (e *env) status() *cobra.Command {
 				case system != "" && row.Credential.System != system,
 					environment != "" && row.Credential.Environment != environment,
 					len(show) > 0 && !slices.Contains(show, st),
-					len(show) == 0 && !all && slices.Contains(quiet, st),
+					len(work) > 0 && !slices.Contains(work, string(row.Progress)),
+					len(show) == 0 && len(work) == 0 && !all && slices.Contains(quiet, st),
 					manual && row.Credential.Handling.Automatic():
 					continue
 				}
@@ -226,9 +234,32 @@ func (e *env) status() *cobra.Command {
 	c.Flags().StringVar(&states, "state", "", "comma-separated states to list (default: all but ok, planned and retired)")
 	c.Flags().BoolVar(&all, "all", false, "list every credential")
 	c.Flags().BoolVar(&manual, "manual", false, "only credentials with a step done by hand")
+	c.Flags().StringVar(&progress, "progress", "", "comma-separated work to list: to-create, to-deploy, deployed, retired")
 	c.Flags().StringVar(&system, "system", "", "only this system")
 	c.Flags().StringVar(&environment, "env", "", "only this environment")
 	return c
+}
+
+// matchIDs returns the ID itself, or with a *, every ID the pattern
+// matches; it is an error when nothing matches.
+func matchIDs(r *omnicredential.Registry, pattern string) ([]string, error) {
+	if !strings.Contains(pattern, "*") {
+		return []string{pattern}, nil
+	}
+	re, err := regexp.Compile("^" + strings.ReplaceAll(regexp.QuoteMeta(pattern), `\*`, ".*") + "$")
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, c := range r.Credentials {
+		if re.MatchString(c.ID) {
+			ids = append(ids, c.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no credential matches %q", pattern)
+	}
+	return ids, nil
 }
 
 func splitList(s string) []string {
@@ -251,7 +282,7 @@ func joinStates(states []omnicredential.State) string {
 
 func statusTable(w io.Writer, rows []report.Row, total int, now time.Time) error {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintf(tw, "STATE\tCREDENTIAL\tOWNER\tBY HAND\tREASON\n"); err != nil {
+	if _, err := fmt.Fprintf(tw, "WORK\tSTATE\tCREDENTIAL\tOWNER\tBY HAND\tREASON\n"); err != nil {
 		return err
 	}
 	for _, row := range rows {
@@ -263,7 +294,7 @@ func statusTable(w io.Writer, rows []report.Row, total int, now time.Time) error
 			}
 			byHand = strings.Join(parts, ",")
 		}
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", row.Assessment.State, row.Credential.ID, row.Credential.Owner, byHand, row.Assessment.Reason); err != nil {
+		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", row.Progress, row.Assessment.State, row.Credential.ID, row.Credential.Owner, byHand, row.Assessment.Reason); err != nil {
 			return err
 		}
 	}
@@ -353,9 +384,11 @@ func (e *env) record() *cobra.Command {
 		types[i] = string(t)
 	}
 	c := &cobra.Command{
-		Use:   "record <credential-id> <" + strings.Join(types, "|") + ">",
-		Short: "Add an event to the log: a credential was created, rotated, verified, given an expiry or revoked",
-		Args:  cobra.ExactArgs(2),
+		Use:   "record <credential-id-or-pattern> <" + strings.Join(types, "|") + ">",
+		Short: "Add an event to the log: a credential was created, rotated, deployed, verified, given an expiry or revoked",
+		Long: "record adds an event for one credential, or for every credential whose ID matches a pattern,\n" +
+			"where * matches any text, slashes included: record 'example-app/prod/*' deployed.",
+		Args: cobra.ExactArgs(2),
 		ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 1 {
 				return types, cobra.ShellCompDirectiveNoFileComp
@@ -363,7 +396,7 @@ func (e *env) record() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			ev := omnicredential.Event{Credential: args[0], Type: omnicredential.EventType(args[1]), By: by, Note: note}
+			ev := omnicredential.Event{Type: omnicredential.EventType(args[1]), By: by, Note: note}
 			ev.At = e.opts.Now()
 			if at != "" {
 				t, err := parseTime(at)
@@ -383,13 +416,25 @@ func (e *env) record() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := l.Append(r, ev); err != nil {
+			ids, err := matchIDs(r, args[0])
+			if err != nil {
 				return err
+			}
+			for _, id := range ids {
+				ev.Credential = id
+				if err := l.Append(r, ev); err != nil {
+					return err
+				}
 			}
 			if err := l.Save(e.events); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(c.OutOrStdout(), "recorded %s %s at %s in %s\n", ev.Credential, ev.Type, ev.At.UTC().Format(time.RFC3339), e.events)
+			for _, id := range ids {
+				if _, err := fmt.Fprintf(c.OutOrStdout(), "recorded %s %s at %s\n", id, ev.Type, ev.At.UTC().Format(time.RFC3339)); err != nil {
+					return err
+				}
+			}
+			_, err = fmt.Fprintf(c.OutOrStdout(), "%d event(s) in %s\n", len(ids), e.events)
 			return err
 		},
 	}

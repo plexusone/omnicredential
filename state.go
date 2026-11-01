@@ -60,10 +60,11 @@ func Assess(c Credential, rec Record, now time.Time, warn time.Duration) Assessm
 		return Assessment{State: StateRetired, Reason: "retired"}
 	case rec.Revoked != nil:
 		return Assessment{State: StateRetired, Reason: "revoked " + day(*rec.Revoked)}
-	case c.Status == StatusPlanned:
-		return Assessment{State: StatePlanned, Reason: "not created yet"}
 	}
 	changed := rec.Changed()
+	if c.Status == StatusPlanned && changed == nil {
+		return Assessment{State: StatePlanned, Reason: "not created yet"}
+	}
 	if changed == nil && c.Generation.Method != MethodFederated {
 		return Assessment{State: StateUnrecorded, Reason: "active, but no created or rotated event"}
 	}
@@ -96,6 +97,53 @@ func Assess(c Credential, rec Record, now time.Time, warn time.Duration) Assessm
 		return Assessment{State: StateOK, Reason: fmt.Sprintf("%s since %s", c.Rotation.Policy, day(*changed))}
 	}
 	return Assessment{State: StateOK, Reason: "federated: no stored value"}
+}
+
+// Progress is where the work on a credential stands: created, then
+// deployed to where its consumers read it.
+type Progress string
+
+// Progress values.
+const (
+	// ProgressToCreate has no value yet: no created or rotated event.
+	ProgressToCreate Progress = "to-create"
+	// ProgressToDeploy has a value not yet deployed to its rendered
+	// stores: never deployed, or rotated since the last deploy.
+	ProgressToDeploy Progress = "to-deploy"
+	// ProgressDeployed is in place: created, and deployed since it last
+	// changed, or with no rendered store to deploy to.
+	ProgressDeployed Progress = "deployed"
+	// ProgressRetired is retired or revoked.
+	ProgressRetired Progress = "retired"
+)
+
+// Progresses lists every Progress in the order work goes.
+func Progresses() []Progress {
+	return []Progress{ProgressToCreate, ProgressToDeploy, ProgressDeployed, ProgressRetired}
+}
+
+// ProgressOf gives where the work on a credential stands from its record.
+// A federated credential has no value: it counts as created once
+// deployed.
+func ProgressOf(c Credential, rec Record) Progress {
+	if c.Status == StatusRetired || rec.Revoked != nil {
+		return ProgressRetired
+	}
+	changed := rec.Changed()
+	if c.Generation.Method == MethodFederated {
+		changed = rec.Deployed
+	}
+	if changed == nil {
+		return ProgressToCreate
+	}
+	rendered := false
+	for _, s := range c.Stores {
+		rendered = rendered || s.Role == RoleRendered
+	}
+	if rendered && (rec.Deployed == nil || rec.Deployed.Before(*changed)) {
+		return ProgressToDeploy
+	}
+	return ProgressDeployed
 }
 
 func earliest(a, b *time.Time) *time.Time {

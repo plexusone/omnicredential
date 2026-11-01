@@ -82,7 +82,7 @@ func TestPlan(t *testing.T) {
 		"| Scheduled rotations by hand, per year | about 13.2 |",
 		"| Rotated by hand at the issuer's expiry | 1 credential |",
 		"| a-app | staging | 2 | 0 | 2 | 2 |",
-		"To create by hand: 3 credentials, those planned or active with nothing recorded. Systems create 1 credential more.",
+		"To create by hand: 3 credentials with no created event: planned ones to make, and active ones that exist but are not recorded yet. Systems create 1 credential more.",
 		"### 1. Accounts\n\n- [ ] **org/owner** (account, planned)",
 		"### 2. a-app · staging",
 		"    - Command: `openssl rand -hex 32`",
@@ -95,6 +95,8 @@ func TestPlan(t *testing.T) {
 		`| 2026-08-15 | a-app/ci/TOKEN | expires | human | CI stops, \| until replaced |`,
 		"- [ ] **owner** (org/owner)\n    - MFA\n    - Recovery: Recovery codes.",
 		"| org/owner | 1 | 0 | MFA |",
+		"| To create / to deploy / deployed | 4 / 0 / 4 |",
+		"## To Deploy\n\nNothing is waiting to be deployed.",
 		"| a-app/prod/ROOT | Only from the backup copy. | password-manager root copy |",
 	} {
 		if !strings.Contains(out, want) {
@@ -179,3 +181,58 @@ func TestFoldKeepsCharactersWhole(t *testing.T) {
 }
 
 func bufioWriter(b *bytes.Buffer) *bufio.Writer { return bufio.NewWriter(b) }
+
+func TestProgressAndNextStep(t *testing.T) {
+	r, l, now := fixture(t)
+	c, _ := r.Find("b-app/prod/OK")
+	c.Stores = append(c.Stores, omnicredential.Store{Type: omnicredential.StoreHostFile, Role: omnicredential.RoleRendered, Path: "/etc/b/env", Install: "the deploy tool writes it"})
+	r.Credentials[0] = c
+	rep := Build("Team", r, l, now, omnicredential.DefaultWarn)
+	byID := map[string]Row{}
+	for _, row := range rep.Rows {
+		byID[row.Credential.ID] = row
+	}
+	if p := byID["b-app/prod/OK"]; p.Progress != omnicredential.ProgressToDeploy ||
+		p.NextStep != "Deploy to host-file /etc/b/env: the deploy tool writes it Then record it as deployed." {
+		t.Errorf("OK: %s, %q", p.Progress, p.NextStep)
+	}
+	if p := byID["a-app/prod/OLD"]; p.Progress != omnicredential.ProgressDeployed || p.NextStep != "" {
+		t.Errorf("OLD: %s, %q", p.Progress, p.NextStep)
+	}
+	if p := byID["a-app/staging/NEW"]; p.Progress != omnicredential.ProgressToCreate ||
+		!strings.HasPrefix(p.NextStep, "Create it with: openssl rand -hex 32. ") || !strings.HasSuffix(p.NextStep, "Then record it as created.") {
+		t.Errorf("NEW: %s, %q", p.Progress, p.NextStep)
+	}
+	if rep.Work[omnicredential.ProgressToDeploy] != 1 || rep.Work[omnicredential.ProgressToCreate] != 1 {
+		t.Errorf("work = %v", rep.Work)
+	}
+	var b bytes.Buffer
+	if err := rep.Plan(&b, r, PlanOptions{RecordCommand: "tool record"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"## To Deploy\n\nCreated or rotated, but not deployed since: 1 credential.",
+		"- [ ] **b-app/prod/OK** (system: deploy)\n    - To host-file `/etc/b/env`: the deploy tool writes it\n    - Record: `tool record b-app/prod/OK deployed`",
+	} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("plan missing %q", want)
+		}
+	}
+	var h bytes.Buffer
+	if err := rep.HTML(&h); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(h.String(), `"progress":"to-deploy","nextStep":"Deploy to host-file /etc/b/env`) {
+		t.Error("the page has no progress or next step")
+	}
+}
+
+func TestNextStepForAnExistingUnrecordedCredential(t *testing.T) {
+	c := cred("x/prod/K", "x", omnicredential.PolicyOnDemand, 0)
+	if got := NextStep(c, omnicredential.ProgressToCreate); got != "It exists but nothing is recorded: record it as created, with its date." {
+		t.Errorf("NextStep = %q", got)
+	}
+	if got := NextStep(c, omnicredential.ProgressDeployed); got != "" {
+		t.Errorf("NextStep = %q", got)
+	}
+}

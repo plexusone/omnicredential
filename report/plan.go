@@ -59,6 +59,7 @@ func (rep Report) Plan(w io.Writer, r *omnicredential.Registry, o PlanOptions) e
 
 	planSummary(m, rep)
 	planChecklist(m, rep, r, o)
+	planDeploy(m, rep, o)
 	planCalendar(m, rep, o)
 	planAccounts(m, rep)
 	planExposure(m, rep, o)
@@ -88,6 +89,7 @@ func planSummary(m *md, rep Report) {
 	}
 	m.linef("| Scheduled rotations by hand, per year | about %s |", strconv.FormatFloat(h.RotationsPerYear, 'f', -1, 64))
 	m.linef("| Rotated by hand at the issuer's expiry | %s |", credentials(h.ExpiringByHand))
+	m.linef("| To create / to deploy / deployed | %d / %d / %d |", rep.Work[omnicredential.ProgressToCreate], rep.Work[omnicredential.ProgressToDeploy], rep.Work[omnicredential.ProgressDeployed])
 	m.blank()
 
 	type key struct{ system, env string }
@@ -166,8 +168,7 @@ func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions)
 	}
 	for _, c := range r.Credentials {
 		row := byID[c.ID]
-		st := row.Assessment.State
-		if st != omnicredential.StatePlanned && st != omnicredential.StateUnrecorded {
+		if row.Progress != omnicredential.ProgressToCreate {
 			continue
 		}
 		if c.Handling.Generate != omnicredential.ActorHuman {
@@ -201,7 +202,7 @@ func planChecklist(m *md, rep Report, r *omnicredential.Registry, o PlanOptions)
 	for _, g := range groups {
 		n += len(g.rows)
 	}
-	intro := fmt.Sprintf("To create by hand: %s, those planned or active with nothing recorded.", credentials(n))
+	intro := fmt.Sprintf("To create by hand: %s with no created event: planned ones to make, and active ones that exist but are not recorded yet.", credentials(n))
 	if auto > 0 {
 		intro += fmt.Sprintf(" Systems create %s more.", credentials(auto))
 	}
@@ -281,6 +282,38 @@ func checklistItem(m *md, row Row, o PlanOptions) {
 		sub(label, dest+": "+how)
 	}
 	sub("Record", code(o.RecordCommand+" "+c.ID+" created"))
+}
+
+// planDeploy lists the credentials created but not deployed since they
+// last changed, with how each is deployed.
+func planDeploy(m *md, rep Report, o PlanOptions) {
+	var rows []Row
+	for _, row := range rep.Rows {
+		if row.Progress == omnicredential.ProgressToDeploy {
+			rows = append(rows, row)
+		}
+	}
+	m.line("## To Deploy")
+	m.blank()
+	if len(rows) == 0 {
+		m.line("Nothing is waiting to be deployed.")
+		m.blank()
+		return
+	}
+	m.linef("Created or rotated, but not deployed since: %s. Deploy each, then record it.", credentials(len(rows)))
+	m.blank()
+	slices.SortStableFunc(rows, func(a, b Row) int { return strings.Compare(a.Credential.ID, b.Credential.ID) })
+	for _, row := range rows {
+		c := row.Credential
+		m.linef("- [ ] **%s** (%s)", c.ID, strings.Join(nonEmpty(string(c.Handling.Distribute), c.Handling.Automation), ": "))
+		for _, s := range c.Stores {
+			if s.Role == omnicredential.RoleRendered {
+				m.linef("    - To %s: %s", strings.Join(nonEmpty(s.Type, code(s.Path)), " "), oneLine(orDash(s.Install)))
+			}
+		}
+		m.linef("    - Record: %s", code(o.RecordCommand+" "+c.ID+" deployed"))
+	}
+	m.blank()
 }
 
 func looksLikeCommand(s string) bool {

@@ -154,14 +154,34 @@ it.
   a section per system with a table and the details of each entry,
   including how to install it in each store. It uses only the registry, never the time or the events,
   so a test can check a committed copy is current.
+- **Plan:** the management plan in Markdown: a summary (counts by
+  status, system and environment, state and who does each stage); the
+  launch checklist of what a person creates (planned, or active with
+  nothing recorded), accounts first, then each system's environments in
+  a given order, each credential after those it is built from, with
+  where to create it, the command, how to install it in each store and
+  the command that records it; the rotation calendar; the accounts'
+  protections, ticked by `verified` events; and the credentials whose
+  leak exposes the most, with what cannot be recovered and its backup.
+- **Calendar:** the rotation calendar as an iCalendar (RFC 5545) file:
+  an all-day event per scheduled rotation (repeating at its interval) and
+  per expiry, with a reminder before it, and the procedure, impact,
+  console and record command in its description. Late items go on the
+  report's date. Event IDs are stable, so a newer file updates the same
+  events.
 - **JSON:** the rows with their assessments, for other tools.
+
+The HTML page, the plan and the calendar depend on the time. Each
+records its date (a `meta` element, a comment, an `X-` property), which
+`report.AsOf` reads, so a committed copy can be rebuilt and compared.
 
 ## Command Line
 
 ```
 omnicredential validate
 omnicredential status   [--fail-on expired,overdue] [filters]
-omnicredential report   --format html|markdown|json [-o file] [--as-of date]
+omnicredential report   --format html|markdown|plan|ics|json [-o file] [--as-of date]
+                        [--months 12] [--environment-order prod,staging] [--remind-days n]
 omnicredential record   <id> <created|rotated|expires|verified|revoked> [--at] [--expires] [--by] [--note]
 omnicredential export   [-o file]
 omnicredential schema   registry|events [-o file]

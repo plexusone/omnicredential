@@ -49,6 +49,12 @@ credential stands.
   environment, kind, state, issuer, store, consumer, owner, sensitivity,
   rotation and tag, sort, open any credential's details and history,
   share a filtered view by URL, and download CSV.
+- **Management plan** in Markdown: a summary, the launch checklist of
+  what you create by hand (in the order to do it, with the console, the
+  command and where to install it), the rotation calendar for the next
+  year, the accounts' protections, and what each leak exposes.
+- **Calendar export.** An iCalendar file with every rotation and expiry
+  and a reminder before each; import it once and your calendar tells you.
 - **Markdown reference** for documentation sites. It depends only on the
   registry, so a test can check a committed copy is current.
 - **A gate.** `status` exits non-zero when any credential is expired or
@@ -76,7 +82,7 @@ omnicredential report   --format html -o credentials.html --registry credentials
 |---|---|
 | `validate` | Checks the registry and the event log |
 | `status` | Lists credentials needing attention; fails on `--fail-on` states (default `expired,overdue`); `--manual` for only those with a step by hand |
-| `report` | Writes `--format html`, `markdown` or `json` |
+| `report` | Writes `--format html`, `markdown`, `plan`, `ics` or `json` |
 | `record <id> <type>` | Adds a `created`, `rotated`, `expires`, `verified` or `revoked` event |
 | `export` | Writes the registry as JSON |
 | `schema <registry\|events>` | Writes a JSON Schema |

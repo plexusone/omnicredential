@@ -18,6 +18,8 @@
 - [x] **RMI-OMNICREDENTIAL-020** Handling: whether a person or a system generates, distributes and rotates each credential, counted in every report
 - [x] **RMI-OMNICREDENTIAL-021** Reach: what a holder can get (`reaches`, with `dependsOn`), what a leak exposes in all and what exposes each credential
 - [x] **RMI-OMNICREDENTIAL-022** Human instructions: install steps and consoles per store, accounts with protections and recovery, and a by-place checklist
+- [x] **RMI-OMNICREDENTIAL-023** Management plan: summary, launch checklist in dependency order, rotation calendar, account protections and exposure
+- [x] **RMI-OMNICREDENTIAL-024** Calendar export: rotations and expiries as iCalendar events with reminders
 
 ## Phase 3: Observed State
 

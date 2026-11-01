@@ -4,13 +4,14 @@
 
 | Package | Purpose | Dependencies |
 |---|---|---|
-| `credspec` | Types, validation, event log, state | Standard library only |
-| `report` | HTML, Markdown and JSON reports | Standard library only |
+| `credspec` | Types, validation, event log, state | Standard library and `github.com/grokify/oscompat` |
+| `report` | HTML, Markdown and JSON reports | Standard library and `github.com/grokify/oscompat` |
 | `schema` | JSON Schemas generated from the types, embedded | `github.com/invopop/jsonschema` |
 | `cli` | The commands as a mountable Cobra command | `github.com/spf13/cobra` |
 | `cmd/credspec` | The standalone command over JSON files | `cli` |
 
-Importing `credspec` or `report` adds no third-party dependency.
+Importing `credspec` or `report` adds only oscompat, which itself depends on
+nothing outside the standard library.
 
 ## Data Model
 

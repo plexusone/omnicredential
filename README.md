@@ -130,8 +130,8 @@ root.AddCommand(cli.New(cli.Options{
 
 | Package | Purpose |
 |---|---|
-| `credspec` | Types, validation, event log, state (standard library only) |
-| `report` | HTML, Markdown and JSON reports (standard library only) |
+| `credspec` | Types, validation, event log, state (standard library and oscompat) |
+| `report` | HTML, Markdown and JSON reports (standard library and oscompat) |
 | `schema` | JSON Schemas generated from the types |
 | `cli` | The commands as a mountable Cobra command |
 | `cmd/credspec` | The standalone command |

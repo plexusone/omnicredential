@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	oscfs "github.com/grokify/oscompat/fs"
+
 	"github.com/plexusone/omnicredential/schema"
 )
 
@@ -21,8 +23,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(schema.RegistryFile, registry, 0o644); err != nil { //nolint:gosec // G306: a schema meant to be committed and read.
+	// Schemas are committed and read.
+	if err := oscfs.WriteFile(schema.RegistryFile, registry, oscfs.DefaultFilePerm); err != nil {
 		return err
 	}
-	return os.WriteFile(schema.EventsFile, events, 0o644) //nolint:gosec // G306: a schema meant to be committed and read.
+	return oscfs.WriteFile(schema.EventsFile, events, oscfs.DefaultFilePerm)
 }

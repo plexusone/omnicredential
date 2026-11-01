@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	oscfs "github.com/grokify/oscompat/fs"
 	"github.com/spf13/cobra"
 
 	"github.com/plexusone/omnicredential"
@@ -491,5 +491,6 @@ func write(c *cobra.Command, path string, data []byte) error {
 		_, err := c.OutOrStdout().Write(data)
 		return err
 	}
-	return os.WriteFile(path, data, 0o644) //nolint:gosec // G306: reports and schemas hold no values and are meant to be read.
+	// Reports and schemas hold no values and are meant to be read.
+	return oscfs.WriteFile(path, data, oscfs.DefaultFilePerm)
 }
